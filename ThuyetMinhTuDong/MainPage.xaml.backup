@@ -1,0 +1,148 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
+             x:Class="ThuyetMinhTuDong.MainPage"
+             BackgroundColor="#0F111A">
+
+    <Grid>
+        <!-- MAP PLACEHOLDER (Top Area) -->
+        <!-- Đặt x:Name cho Map để có thể bật tắt IsShowingUser từ Code-Behind nhằm tối ưu Pin -->
+        <maps:Map x:Name="MyMap" IsShowingUser="False" MapType="Street" VerticalOptions="Fill" HorizontalOptions="Fill" />
+
+        <Grid IgnoreSafeArea="True" InputTransparent="True">
+            <!-- Các controls overlay (GPS, Toạ độ) vẫn giữ nguyên -->
+            <!-- GPS overlay right-top -->
+            <Border BackgroundColor="Transparent" Stroke="#4385F4" StrokeThickness="1" Padding="10,5" HorizontalOptions="End" VerticalOptions="Start" Margin="15,50,15,0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="15"/>
+                </Border.StrokeShape>
+                <HorizontalStackLayout Spacing="5">
+                    <BoxView Color="#34A853" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center"/>
+                    <Label Text="GPS · 4m" TextColor="#4385F4" FontSize="12"/>
+                </HorizontalStackLayout>
+            </Border>
+
+            <!-- Coordinates overlay left-bottom -->
+            <Border x:Name="CoordBorder" BackgroundColor="#1E2030" Padding="12,6" HorizontalOptions="Start" VerticalOptions="End" Margin="15,0,15,150" Stroke="Transparent" StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="15"/>
+                </Border.StrokeShape>
+                <Label Text="10.7770° N · 106.7009° E" TextColor="White" FontSize="12" FontAttributes="Bold"/>
+            </Border>
+        </Grid>
+
+        <!-- LỚP ĐÈ LÊN TRÊN: Bottom panel luôn ở chế độ lơ lửng dưới đáy (VerticalOptions="End") -->
+        <VerticalStackLayout VerticalOptions="End" 
+                             Padding="15,10,15,30" 
+                             Spacing="20" 
+                             BackgroundColor="#0F111A">
+            <VerticalStackLayout.GestureRecognizers>
+                <SwipeGestureRecognizer Direction="Up" Swiped="OnSwipeUp" />
+                <SwipeGestureRecognizer Direction="Down" Swiped="OnSwipeDown" />
+            </VerticalStackLayout.GestureRecognizers>
+            
+            <!-- Swipe Handle -->
+            <BoxView HeightRequest="4" WidthRequest="40" Color="#282D42" CornerRadius="2" HorizontalOptions="Center" Margin="0,0,0,5" />
+
+            <!-- Header Row: Language Button & Settings -->
+            <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,10">
+                <Button Grid.Column="0" x:Name="LanguageButton" Text="VN Vietnamese ▾" TextColor="White" FontAttributes="Bold" FontSize="13" BackgroundColor="Transparent" Padding="15,8" CornerRadius="16" BorderColor="#282D42" BorderWidth="1" HorizontalOptions="Start" Clicked="OnAddLanguageClicked" />
+                <Button Grid.Column="1" Text="⚙" TextColor="White" FontSize="18" BackgroundColor="Transparent" Padding="10" CornerRadius="16" BorderColor="#282D42" BorderWidth="1" />
+            </Grid>
+
+            <VerticalStackLayout x:Name="ExpandableContent" Spacing="25" HeightRequest="0" Opacity="0" IsVisible="True">
+                <!-- Tabs -->
+                <Grid ColumnDefinitions="*, *, *">
+                    <VerticalStackLayout Grid.Column="0" Spacing="8">
+                        <Label Text="Giới thiệu" TextColor="#4385F4" HorizontalOptions="Center" FontSize="14" FontAttributes="Bold"/>
+                        <BoxView HeightRequest="2" Color="#4385F4" HorizontalOptions="Fill"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="8">
+                        <Label Text="Gần bạn" TextColor="#7D8398" HorizontalOptions="Center" FontSize="14" FontAttributes="Bold"/>
+                        <BoxView HeightRequest="2" Color="#282D42" HorizontalOptions="Fill"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="2" Spacing="8">
+                        <Label Text="Yêu thích" TextColor="#7D8398" HorizontalOptions="Center" FontSize="14" FontAttributes="Bold"/>
+                        <BoxView HeightRequest="2" Color="#282D42" HorizontalOptions="Fill"/>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <!-- Media Player Card -->
+                <Border BackgroundColor="#181A2A" Stroke="#282D42" Padding="20">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="16"/>
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="10">
+                        <!-- Status -->
+                        <HorizontalStackLayout Spacing="8" Margin="0,0,0,5">
+                            <Label Text="▶" TextColor="#4385F4" FontSize="12" VerticalOptions="Center"/>
+                            <Label Text="Đang phát · Bún bò Huế Cô Ba" TextColor="#4385F4" FontSize="12" FontAttributes="Bold" VerticalOptions="Center"/>
+                        </HorizontalStackLayout>
+
+                        <Label Text="Bún bò Huế Cô Ba" TextColor="White" FontAttributes="Bold" FontSize="20"/>
+
+                        <Label Text="Quán bún bò nổi tiếng hơn 30 năm tại phố Nguyễn Công Trứ. Nước dùng được ninh từ xương heo và sả, tạo nên hương vị đậm đà đặc trưng miền Trung" 
+                               TextColor="#7D8398" FontSize="13" LineHeight="1.5" LineBreakMode="WordWrap" Margin="0,5,0,10"/>
+
+                        <!-- Waveform placeholder -->
+                        <HorizontalStackLayout Spacing="3" HeightRequest="30" HorizontalOptions="Start">
+                            <BoxView WidthRequest="4" HeightRequest="15" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="25" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="10" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="30" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="20" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="15" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="28" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="8" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="22" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="16" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+
+                            <!-- Unplayed part -->
+                            <BoxView WidthRequest="4" HeightRequest="25" Color="#282D42" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="12" Color="#282D42" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="18" Color="#282D42" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView WidthRequest="4" HeightRequest="8" Color="#282D42" VerticalOptions="Center" CornerRadius="2"/>
+                        </HorizontalStackLayout>
+
+                        <!-- Progress bar -->
+                        <Grid ColumnDefinitions="*,*" Margin="0,15,0,0">
+                            <BoxView Grid.Column="0" Grid.ColumnSpan="2" HeightRequest="4" Color="#282D42" VerticalOptions="Center" CornerRadius="2"/>
+                            <BoxView Grid.Column="0" HeightRequest="4" Color="#4385F4" VerticalOptions="Center" CornerRadius="2"/>
+                        </Grid>
+
+                        <!-- Controls -->
+                        <Grid ColumnDefinitions="Auto, Auto, Auto, *, Auto, Auto" Margin="0,20,0,0" VerticalOptions="Center">
+                            <Border Grid.Column="0" BackgroundColor="Transparent" Stroke="#4385F4" Padding="12,8" Margin="0,0,10,0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8"/>
+                                </Border.StrokeShape>
+                                <Label Text="⏪" TextColor="White" FontSize="16" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" BackgroundColor="Transparent" Stroke="#4385F4" Padding="12,8" Margin="0,0,10,0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8"/>
+                                </Border.StrokeShape>
+                                <!-- Pause icon approx -->
+                                <HorizontalStackLayout Spacing="3" HorizontalOptions="Center" VerticalOptions="Center">
+                                    <BoxView WidthRequest="4" HeightRequest="14" Color="White"/>
+                                    <BoxView WidthRequest="4" HeightRequest="14" Color="White"/>
+                                </HorizontalStackLayout>
+                            </Border>
+                            <Border Grid.Column="2" BackgroundColor="Transparent" Stroke="#4385F4" Padding="12,8">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8"/>
+                                </Border.StrokeShape>
+                                <Label Text="⏩" TextColor="White" FontSize="16" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            </Border>
+
+                            <Label Grid.Column="4" Text="TTS" TextColor="#7D8398" VerticalOptions="Center" Margin="0,0,8,0" FontSize="13" FontAttributes="Bold"/>
+                            <Switch Grid.Column="5" IsToggled="True" OnColor="#4385F4" ThumbColor="White" VerticalOptions="Center"/>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </Grid>
+
+</ContentPage>
