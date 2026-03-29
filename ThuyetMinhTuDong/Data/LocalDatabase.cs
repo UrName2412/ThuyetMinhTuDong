@@ -11,6 +11,7 @@ namespace ThuyetMinhTuDong.Data
         public LocalDatabase(string dbPath)
         {
             _dbPath = dbPath;
+            System.Diagnostics.Debug.WriteLine($"ĐƯỜNG DẪN DATABASE: {_dbPath}");
         }
 
         private async Task InitAsync()
@@ -20,6 +21,7 @@ namespace ThuyetMinhTuDong.Data
 
             _database = new SQLiteAsyncConnection(_dbPath);
             await _database.CreateTableAsync<PointOfInterest>();
+            await _database.CreateTableAsync<QRCode>();
         }
 
         public async Task<List<PointOfInterest>> GetPOIsAsync()
@@ -41,6 +43,34 @@ namespace ThuyetMinhTuDong.Data
         {
             await InitAsync();
             return await _database.DeleteAsync(poi);
+        }
+
+        public async Task<List<QRCode>> GetQRCodesAsync()
+        {
+            await InitAsync();
+            return await _database.Table<QRCode>().ToListAsync();
+        }
+
+        public async Task<QRCode> GetQRCodeByValueAsync(string qrValue)
+        {
+            await InitAsync();
+            return await _database.Table<QRCode>()
+                .FirstOrDefaultAsync(q => q.QRValue == qrValue);
+        }
+
+        public async Task<int> SaveQRCodeAsync(QRCode qrCode)
+        {
+            await InitAsync();
+            if (qrCode.Id != 0)
+                return await _database.UpdateAsync(qrCode);
+            else
+                return await _database.InsertAsync(qrCode);
+        }
+
+        public async Task<int> DeleteQRCodeAsync(QRCode qrCode)
+        {
+            await InitAsync();
+            return await _database.DeleteAsync(qrCode);
         }
     }
 }

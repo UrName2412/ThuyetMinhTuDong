@@ -27,6 +27,7 @@ namespace ThuyetMinhTuDong
 
             // Register Dependency Injection
             builder.Services.AddTransient<MainPage>();
+            builder.Services.AddTransient<QRScannerPage>();
 
             return builder.Build();
         }
