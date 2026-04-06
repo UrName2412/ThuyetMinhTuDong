@@ -15,6 +15,9 @@ namespace ThuyetMinhTuDong
         private const string ApiHostPreferenceKey = "poi_api_host";
         private const string SupabaseAnonKeyPreferenceKey = "supabase_anon_key";
         private const string DefaultSupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZraWN1dG14eWt6aXd5Z2Vtc2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MTc1NDAsImV4cCI6MjA5MDk5MzU0MH0.SVNFu7wpI-TTLRXDvAOX_KPRXIvX7TEQapi0DjNX2z0";
+        private const bool EnableRemotePoiSync = false;
+        private const string PlayIconGlyph = "\uf04b";
+        private const string PauseIconGlyph = "\uf04c";
 
         private readonly LocalDatabase _database;
         private readonly TTSService _ttsService;
@@ -82,7 +85,7 @@ namespace ThuyetMinhTuDong
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     var playPauseIcon = this.FindByName<Label>("PlayPauseIcon");
-                    if (playPauseIcon != null) playPauseIcon.Text = "⏸";
+                    if (playPauseIcon != null) playPauseIcon.Text = PauseIconGlyph;
                 });
             };
 
@@ -91,7 +94,7 @@ namespace ThuyetMinhTuDong
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     var playPauseIcon = this.FindByName<Label>("PlayPauseIcon");
-                    if (playPauseIcon != null) playPauseIcon.Text = "▶";
+                    if (playPauseIcon != null) playPauseIcon.Text = PlayIconGlyph;
                 });
             };
 
@@ -496,7 +499,7 @@ namespace ThuyetMinhTuDong
                     var playPauseIcon = this.FindByName<Label>("PlayPauseIcon");
                     if (playPauseIcon != null)
                     {
-                        playPauseIcon.Text = "▶";
+                        playPauseIcon.Text = PlayIconGlyph;
                     }
                 }
 

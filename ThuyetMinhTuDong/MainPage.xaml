@@ -74,31 +74,35 @@
                         </ScrollView>
 
                         <!-- Các nút điều khiển -->
-                        <Grid ColumnDefinitions="Auto, Auto, Auto, *, Auto, Auto" Margin="0,20,0,0" VerticalOptions="Center">
-                            <Border Grid.Column="0" BackgroundColor="Transparent" Stroke="#D4AF37" Padding="12,8" Margin="0,0,10,0">
+                        <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="0,20,0,0" VerticalOptions="Center">
+                            <Border Grid.Column="0"
+                                    BackgroundColor="Transparent"
+                                    Stroke="#D4AF37"
+                                    WidthRequest="42"
+                                    HeightRequest="42"
+                                    Padding="0"
+                                    Margin="0,0,10,0"
+                                    HorizontalOptions="Start"
+                                    VerticalOptions="Center">
                                 <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8"/>
-                                </Border.StrokeShape>
-                                <Label Text="⏪" TextColor="White" FontSize="16" HorizontalOptions="Center" VerticalOptions="Center"/>
-                            </Border>
-                            <Border Grid.Column="1" BackgroundColor="Transparent" Stroke="#D4AF37" Padding="12,8" Margin="0,0,10,0">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8"/>
+                                    <RoundRectangle CornerRadius="10"/>
                                 </Border.StrokeShape>
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnPlayPauseTapped" />
                                 </Border.GestureRecognizers>
-                                <Label x:Name="PlayPauseIcon" Text="▶" TextColor="White" FontSize="16" HorizontalOptions="Center" VerticalOptions="Center"/>
-                            </Border>
-                            <Border Grid.Column="2" BackgroundColor="Transparent" Stroke="#D4AF37" Padding="12,8">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8"/>
-                                </Border.StrokeShape>
-                                <Label Text="⏩" TextColor="White" FontSize="16" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                <Label x:Name="PlayPauseIcon"
+                                       Text="&#xF04B;"
+                                       FontFamily="FontAwesomeSolid"
+                                       TextColor="White"
+                                       FontSize="16"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"
+                                       HorizontalOptions="Fill"
+                                       VerticalOptions="Fill"/>
                             </Border>
 
-                            <Label Grid.Column="4" Text="TTS" TextColor="#A0938A" VerticalOptions="Center" Margin="0,0,8,0" FontSize="13" FontAttributes="Bold"/>
-                            <Switch x:Name="TtsSwitch" Grid.Column="5" IsToggled="True" OnColor="#B71C1C" ThumbColor="White" VerticalOptions="Center"/>
+                            <Label Grid.Column="2" Text="TTS" TextColor="#A0938A" VerticalOptions="Center" Margin="0,0,8,0" FontSize="13" FontAttributes="Bold"/>
+                            <Switch x:Name="TtsSwitch" Grid.Column="3" IsToggled="True" OnColor="#B71C1C" ThumbColor="White" VerticalOptions="Center"/>
                         </Grid>
                     </VerticalStackLayout>
                 </Border>
