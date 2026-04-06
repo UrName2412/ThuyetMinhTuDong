@@ -338,7 +338,9 @@ namespace ThuyetMinhTuDong
             {
                 Text = poi.Description,
                 TextColor = Color.FromArgb("#A0938A"),
-                FontSize = 13
+                FontSize = 13,
+                MaxLines = 4,
+                LineBreakMode = LineBreakMode.TailTruncation
             });
 
             itemLayout.Content = contentLayout;
