@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using ThuyetMinhTuDong.Data;
+using CommunityToolkit.Maui;
 
 namespace ThuyetMinhTuDong
 {
@@ -10,6 +11,7 @@ namespace ThuyetMinhTuDong
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .UseMauiCommunityToolkit()
                 .UseMauiMaps()
                 .ConfigureFonts(fonts =>
                 {
@@ -27,7 +29,6 @@ namespace ThuyetMinhTuDong
 
             // Register Dependency Injection
             builder.Services.AddTransient<MainPage>();
-            builder.Services.AddTransient<QRScannerPage>();
 
             return builder.Build();
         }

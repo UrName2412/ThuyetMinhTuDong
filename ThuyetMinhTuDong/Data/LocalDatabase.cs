@@ -21,22 +21,42 @@ namespace ThuyetMinhTuDong.Data
 
             _database = new SQLiteAsyncConnection(_dbPath);
             await _database.CreateTableAsync<PointOfInterest>();
-            await _database.CreateTableAsync<QRCode>();
+            await _database.CreateTableAsync<TranslationCache>();
+            await _database.CreateTableAsync<SyncState>();
         }
 
+        // ===== POI Methods =====
         public async Task<List<PointOfInterest>> GetPOIsAsync()
         {
             await InitAsync();
             return await _database.Table<PointOfInterest>().ToListAsync();
         }
 
+        public async Task<List<PointOfInterest>> GetActivePOIsAsync()
+        {
+            await InitAsync();
+            return await _database.Table<PointOfInterest>()
+                .Where(x => !x.IsDeleted)
+                .ToListAsync();
+        }
+
         public async Task<int> SavePOIAsync(PointOfInterest poi)
         {
             await InitAsync();
-            if (poi.Id != 0)
+            var existingPoi = await _database.Table<PointOfInterest>().FirstOrDefaultAsync(x => x.Id == poi.Id);
+            if (existingPoi != null)
+            {
+                // Ensure we don't accidentally un-delete a soft-deleted item via normal save
+                if (existingPoi.IsDeleted && !poi.IsDeleted)
+                {
+                   poi.IsDeleted = true; // Keep local delete state unless explicitly restored
+                }
                 return await _database.UpdateAsync(poi);
+            }
             else
+            {
                 return await _database.InsertAsync(poi);
+            }
         }
 
         public async Task<int> DeletePOIAsync(PointOfInterest poi)
@@ -45,32 +65,159 @@ namespace ThuyetMinhTuDong.Data
             return await _database.DeleteAsync(poi);
         }
 
-        public async Task<List<QRCode>> GetQRCodesAsync()
+        public async Task SoftDeletePOIAsync(int poiId)
         {
             await InitAsync();
-            return await _database.Table<QRCode>().ToListAsync();
+            var poi = await _database.FindAsync<PointOfInterest>(poiId);
+            if (poi != null)
+            {
+                poi.IsDeleted = true;
+                poi.DeletedAt = DateTime.Now;
+                await _database.UpdateAsync(poi);
+                
+                // 🧹 Delete all translation cache for this POI
+                await DeleteTranslationCacheForPOIAsync(poiId);
+                
+                System.Diagnostics.Debug.WriteLine($"[Sync] Soft deleted POI #{poiId}: {poi.Name}");
+            }
         }
 
-        public async Task<QRCode> GetQRCodeByValueAsync(string qrValue)
+        public async Task RestorePOIAsync(int poiId)
         {
             await InitAsync();
-            return await _database.Table<QRCode>()
-                .FirstOrDefaultAsync(q => q.QRValue == qrValue);
+            var poi = await _database.FindAsync<PointOfInterest>(poiId);
+            if (poi != null)
+            {
+                poi.IsDeleted = false;
+                poi.DeletedAt = null;
+                poi.DeletedBy = null;
+                await _database.UpdateAsync(poi);
+                System.Diagnostics.Debug.WriteLine($"[Sync] Restored POI: {poi.Name}");
+            }
         }
 
-        public async Task<int> SaveQRCodeAsync(QRCode qrCode)
+        public async Task<int> DeleteAllPOIsAsync()
         {
             await InitAsync();
-            if (qrCode.Id != 0)
-                return await _database.UpdateAsync(qrCode);
-            else
-                return await _database.InsertAsync(qrCode);
+            return await _database.DeleteAllAsync<PointOfInterest>();
         }
 
-        public async Task<int> DeleteQRCodeAsync(QRCode qrCode)
+        // ===== Cleanup Methods =====
+        /// <summary>
+        /// Deletes POIs with empty or null names (data cleanup)
+        /// Optimized to delete all at once using SQL
+        /// </summary>
+        public async Task<int> DeleteEmptyNamePOIsAsync()
         {
             await InitAsync();
-            return await _database.DeleteAsync(qrCode);
+            try
+            {
+                // Use SQL directly for efficiency
+                int deletedCount = await _database.ExecuteAsync(
+                    "DELETE FROM PointOfInterest WHERE Name IS NULL OR Name = ''");
+                
+                if (deletedCount > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Cleanup] Deleted {deletedCount} POIs with empty names");
+                }
+                return deletedCount;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Cleanup] Error during cleanup: {ex.Message}");
+                return 0;
+            }
         }
+
+        // ===== Sync State Methods =====
+        public async Task<DateTime?> GetLastSyncTimeAsync(string key = "poi_last_sync")
+        {
+            await InitAsync();
+            var syncState = await _database.Table<SyncState>()
+                .FirstOrDefaultAsync(x => x.Key == key);
+            return syncState?.LastSyncTime;
+        }
+
+        public async Task UpdateSyncTimeAsync(string key, DateTime syncTime)
+        {
+            await InitAsync();
+            var syncState = new SyncState { Key = key, LastSyncTime = syncTime };
+            await _database.InsertOrReplaceAsync(syncState);
+        }
+
+        // ===== Translation Cache Methods =====
+        public async Task<TranslationCache> GetTranslationAsync(string sourceText, string targetLang)
+        {
+            await InitAsync();
+            var cacheId = $"{sourceText}|{targetLang}";
+            return await _database.Table<TranslationCache>()
+                .FirstOrDefaultAsync(x => x.Id == cacheId);
+        }
+
+        public async Task SaveTranslationAsync(string sourceText, string targetLang, string translatedText, int? poiId = null)
+        {
+            await InitAsync();
+            var cache = new TranslationCache
+            {
+                Id = $"{sourceText}|{targetLang}",
+                POIId = poiId,  // ← Store POI ID for later cleanup
+                SourceText = sourceText,
+                TargetLanguage = targetLang,
+                TranslatedText = translatedText,
+                CreatedAt = DateTime.Now
+            };
+
+            await _database.InsertOrReplaceAsync(cache);
+        }
+
+        /// <summary>
+        /// Delete all translation cache for a specific POI
+        /// </summary>
+        public async Task DeleteTranslationCacheForPOIAsync(int poiId)
+        {
+            await InitAsync();
+            int deletedCount = await _database.ExecuteAsync(
+                "DELETE FROM translation_cache WHERE POIId = ?", poiId);
+            
+            if (deletedCount > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Cache] Deleted {deletedCount} translations for POI #{poiId}");
+            }
+        }
+
+        public async Task CleanupOldCacheAsync(int daysOld = 30)
+        {
+            await InitAsync();
+            var cutoffDate = DateTime.Now.AddDays(-daysOld);
+            await _database.ExecuteAsync(
+                "DELETE FROM translation_cache WHERE CreatedAt < ?", cutoffDate);
+        }
+
+        public async Task<int> GetCacheSizeAsync()
+        {
+            await InitAsync();
+            return await _database.Table<TranslationCache>().CountAsync();
+        }
+    }
+
+    [Table("sync_state")]
+    public class SyncState
+    {
+        [PrimaryKey]
+        public string Key { get; set; }
+        public DateTime LastSyncTime { get; set; }
+    }
+
+    [Table("translation_cache")]
+    public class TranslationCache
+    {
+        [PrimaryKey]
+        public string Id { get; set; }
+        
+        public int? POIId { get; set; }  // ← Link với POI để xóa khi POI bị xóa
+        public string SourceText { get; set; }
+        public string TargetLanguage { get; set; }
+        public string TranslatedText { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }

@@ -22,56 +22,61 @@ public partial class LanguageSearchPage : ContentPage
 
         try
         {
-            _allLocales = await TextToSpeech.Default.GetLocalesAsync();
-
-            if (_allLocales == null || !_allLocales.Any())
+            await Task.Run(async () => 
             {
-                await DisplayAlert("Thông báo", "Không tìm thấy ngôn ngữ nào trên thiết bị.", "OK");
-                await Shell.Current.GoToAsync("..");
-                return;
-            }
+                var locales = await TextToSpeech.Default.GetLocalesAsync();
 
-            // Lấy danh sách các mã ngôn ngữ duy nhất
-            var uniqueLanguages = _allLocales.Select(x => x.Language).Distinct().ToList();
-
-            // Tạo display name và sắp xếp theo tên hiển thị
-            foreach (var langCode in uniqueLanguages)
-            {
-                string displayName = langCode;
-                try
+                if (locales == null || !locales.Any())
                 {
-                    var culture = new System.Globalization.CultureInfo(langCode);
-                    displayName = culture.NativeName;
-                    if (!string.IsNullOrEmpty(displayName))
+                    MainThread.BeginInvokeOnMainThread(async () => 
                     {
-                        displayName = char.ToUpper(displayName[0]) + displayName.Substring(1);
+                        await DisplayAlert("Thông báo", "Không tìm thấy ngôn ngữ nào trên thiết bị.", "OK");
+                        await Shell.Current.GoToAsync("..");
+                    });
+                    return;
+                }
+
+                _allLocales = locales;
+                var uniqueLanguages = _allLocales.Select(x => x.Language).Distinct().ToList();
+
+                var tempCodeMap = new Dictionary<string, string>();
+
+                foreach (var langCode in uniqueLanguages)
+                {
+                    string displayName = langCode;
+                    try
+                    {
+                        var culture = new System.Globalization.CultureInfo(langCode);
+                        displayName = culture.NativeName;
+                        if (!string.IsNullOrEmpty(displayName))
+                        {
+                            displayName = char.ToUpper(displayName[0]) + displayName.Substring(1);
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    if (!tempCodeMap.ContainsKey(displayName))
+                    {
+                        tempCodeMap[displayName] = langCode;
+                    }
+                    else
+                    {
+                        string uniqueKey = $"{displayName} ({langCode})";
+                        tempCodeMap[uniqueKey] = langCode;
                     }
                 }
-                catch
-                {
-                    // Giữ nguyên mã nếu không parse được
-                }
 
-                // Xử lý trường hợp trùng tên
-                if (!_languageCodeMap.ContainsKey(displayName))
-                {
-                    _languageCodeMap[displayName] = langCode;
-                }
-                else
-                {
-                    string uniqueKey = $"{displayName} ({langCode})";
-                    _languageCodeMap[uniqueKey] = langCode;
-                }
-            }
+                var sortedLanguages = tempCodeMap.Keys.OrderBy(x => x).ToList();
 
-            // Sắp xếp theo tên hiển thị
-            var sortedLanguages = _languageCodeMap.Keys.OrderBy(x => x).ToList();
-
-            _displayedLanguages.Clear();
-            foreach (var lang in sortedLanguages)
-            {
-                _displayedLanguages.Add(lang);
-            }
+                MainThread.BeginInvokeOnMainThread(() => 
+                {
+                    _languageCodeMap = tempCodeMap;
+                    _displayedLanguages = new ObservableCollection<string>(sortedLanguages);
+                    LanguagesList.ItemsSource = _displayedLanguages;
+                });
+            });
         }
         catch (Exception ex)
         {
@@ -86,27 +91,31 @@ public partial class LanguageSearchPage : ContentPage
 
         if (string.IsNullOrWhiteSpace(searchText))
         {
-            // Hiển thị tất cả nếu search box trống
             var sortedLanguages = _languageCodeMap.Keys.OrderBy(x => x).ToList();
-            _displayedLanguages.Clear();
-            foreach (var lang in sortedLanguages)
+            MainThread.BeginInvokeOnMainThread(() =>
             {
-                _displayedLanguages.Add(lang);
-            }
+                _displayedLanguages.Clear();
+                foreach (var lang in sortedLanguages)
+                {
+                    _displayedLanguages.Add(lang);
+                }
+            });
         }
         else
         {
-            // Lọc theo text tìm kiếm
             var filtered = _languageCodeMap.Keys
                 .Where(x => x.ToLower().Contains(searchText))
                 .OrderBy(x => x)
                 .ToList();
 
-            _displayedLanguages.Clear();
-            foreach (var lang in filtered)
+            MainThread.BeginInvokeOnMainThread(() =>
             {
-                _displayedLanguages.Add(lang);
-            }
+                _displayedLanguages.Clear();
+                foreach (var lang in filtered)
+                {
+                    _displayedLanguages.Add(lang);
+                }
+            });
         }
     }
 
@@ -117,6 +126,9 @@ public partial class LanguageSearchPage : ContentPage
             // Lấy mã ngôn ngữ từ dictionary
             if (_languageCodeMap.TryGetValue(selectedLanguage, out var languageCode))
             {
+                // Reset selection trước khi navigate
+                ((CollectionView)sender).SelectedItem = null;
+
                 // Truyền dữ liệu về MainPage thông qua Navigation Parameters
                 await Shell.Current.GoToAsync($"..", new Dictionary<string, object>
                 {

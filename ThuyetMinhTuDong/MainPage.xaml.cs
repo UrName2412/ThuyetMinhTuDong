@@ -1,36 +1,33 @@
 ﻿using ThuyetMinhTuDong.Data;
 using ThuyetMinhTuDong.Models;
 using ThuyetMinhTuDong.Services;
+using Microsoft.Maui.Controls.Compatibility;
+using Microsoft.Maui.Storage;
 
 namespace ThuyetMinhTuDong
 {
-    [QueryProperty(nameof(QrId), "qrId")]
     [QueryProperty(nameof(SelectedLanguageCode), "selectedLanguageCode")]
     [QueryProperty(nameof(SelectedLanguageDisplay), "selectedLanguageDisplay")]
     public partial class MainPage : ContentPage
     {
+    private const string PoiApiPath = "/rest/v1/poi?select=*";
+    private const string WindowsApiHost = "http://localhost";
+    private const string AndroidEmulatorApiHost = "http://10.0.2.2";
+    private const string DefaultLanApiHost = "https://vkicutmxykziwygemslh.supabase.co";
+    private const string ApiHostPreferenceKey = "poi_api_host";
+    private const string SupabaseAnonKeyPreferenceKey = "supabase_anon_key";
+    private const string DefaultSupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZraWN1dG14eWt6aXd5Z2Vtc2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MTc1NDAsImV4cCI6MjA5MDk5MzU0MH0.SVNFu7wpI-TTLRXDvAOX_KPRXIvX7TEQapi0DjNX2z0";
+
         private readonly LocalDatabase _database;
-        private string _qrIdParam;
+        private readonly TTSService _ttsService;
+        private readonly LocationService _locationService;
+        private readonly PlaceService _placeService;
+
         private string _selectedLanguageCodeParam;
         private string _selectedLanguageDisplayParam;
-
-        public string QrId
-        {
-            get => _qrIdParam;
-            set
-            {
-                _qrIdParam = value;
-                // Handle the QR code when query parameter is set
-                if (!string.IsNullOrEmpty(_qrIdParam))
-                {
-                    MainThread.BeginInvokeOnMainThread(async () =>
-                    {
-                        await HandleQRCodeResult(_qrIdParam);
-                        _qrIdParam = null;
-                    });
-                }
-            }
-        }
+        private bool isExpanded = false;
+        private string _currentDescriptionVietnamese = string.Empty;
+        private bool _isLanguageInitialized = false;
 
         public string SelectedLanguageCode
         {
@@ -38,82 +35,166 @@ namespace ThuyetMinhTuDong
             set
             {
                 _selectedLanguageCodeParam = value;
-                if (!string.IsNullOrEmpty(_selectedLanguageCodeParam))
-                {
-                    MainThread.BeginInvokeOnMainThread(async () =>
-                    {
-                        await HandleLanguageSelection(_selectedLanguageCodeParam, _selectedLanguageDisplayParam);
-                        _selectedLanguageCodeParam = null;
-                    });
-                }
+                TryHandleLanguageSelection();
             }
         }
 
         public string SelectedLanguageDisplay
         {
             get => _selectedLanguageDisplayParam;
-            set => _selectedLanguageDisplayParam = value;
+            set
+            {
+                _selectedLanguageDisplayParam = value;
+                TryHandleLanguageSelection();
+            }
+        }
+
+        private void TryHandleLanguageSelection()
+        {
+            // Chỉ gọi HandleLanguageSelection khi cả hai giá trị đã được set
+            if (!string.IsNullOrEmpty(_selectedLanguageCodeParam) && !string.IsNullOrEmpty(_selectedLanguageDisplayParam))
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    await HandleLanguageSelection(_selectedLanguageCodeParam, _selectedLanguageDisplayParam);
+                    _selectedLanguageCodeParam = null;
+                    _selectedLanguageDisplayParam = null;
+                });
+            }
         }
 
         public MainPage(LocalDatabase database)
         {
             InitializeComponent();
             _database = database;
+
+            // Initialize services
+            _ttsService = new TTSService(database);
+            _locationService = new LocationService();
+            _placeService = new PlaceService(database);
+
+            // Subscribe to service events
+            SubscribeToServiceEvents();
         }
 
-        protected override async void OnAppearing()
+        private void SubscribeToServiceEvents()
+        {
+            _ttsService.PlayStarted += (s, e) =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    var playPauseIcon = this.FindByName<Label>("PlayPauseIcon");
+                    if (playPauseIcon != null) playPauseIcon.Text = "⏸";
+                });
+            };
+
+            _ttsService.PlayStopped += (s, e) =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    var playPauseIcon = this.FindByName<Label>("PlayPauseIcon");
+                    if (playPauseIcon != null) playPauseIcon.Text = "▶";
+                });
+            };
+
+            _locationService.PermissionDenied += async (s, e) =>
+            {
+                await DisplayAlert("Quyền bị từ chối", e.Message, "OK");
+            };
+        }
+
+        protected override void OnAppearing()
         {
             base.OnAppearing();
 
-            // Initialize sample QR codes on first run
-            await QRCodeService.InitializeSampleQRCodesAsync(_database);
-
-            await CheckAndRequestLocationPermission();
-
-            // Tối ưu: Bật định vị khi trang xuất hiện
-            if (this.FindByName<Microsoft.Maui.Controls.Maps.Map>("MyMap") is { } map)
+            Task.Run(async () => 
             {
-                map.IsShowingUser = true;
-            }
-
-            try
-            {
-                if (_availableLocales == null)
+                try
                 {
-                    _availableLocales = await TextToSpeech.Default.GetLocalesAsync();
-                }
-
-                if (string.IsNullOrEmpty(_selectedLanguageCode) && _availableLocales != null && _availableLocales.Any())
-                {
-                    // Ưu tiên chọn Tiếng Việt làm mặc định, nếu không có lấy ngôn ngữ đầu tiên
-                    _selectedLocale = _availableLocales.FirstOrDefault(x => x.Language.StartsWith("vi", StringComparison.OrdinalIgnoreCase)) 
-                                      ?? _availableLocales.FirstOrDefault();
-                    _selectedLanguageCode = _selectedLocale?.Language;
-
-                    if (!string.IsNullOrEmpty(_selectedLanguageCode))
+                    // 🧹 CLEANUP: Delete POIs with empty names (non-blocking)
+                    System.Diagnostics.Debug.WriteLine("[Startup] Cleaning up POIs with empty names...");
+                    try
                     {
-                        var languageButton = this.FindByName<Button>("LanguageButton");
-                        if (languageButton != null)
+                        await _database.DeleteEmptyNamePOIsAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Startup] Cleanup warning: {ex.Message}");
+                    }
+
+                    // Initialize TTS service
+                    await _ttsService.InitializeAsync();
+
+                    MainThread.BeginInvokeOnMainThread(async () =>
+                    {
+                        try
                         {
-                            string displayName = _selectedLanguageCode;
-                            try
+                            if (!_isLanguageInitialized)
                             {
-                                var culture = new System.Globalization.CultureInfo(_selectedLanguageCode);
-                                displayName = culture.NativeName;
-                                if (!string.IsNullOrEmpty(displayName))
+                                // Set default language to device's system language
+                                var deviceLanguage = System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
+                                if (_ttsService.AvailableLocales?.Any() == true)
                                 {
-                                    displayName = char.ToUpper(displayName[0]) + displayName.Substring(1);
+                                    var matchedLocale = _ttsService.AvailableLocales.FirstOrDefault(l => 
+                                        l.Language.StartsWith(deviceLanguage, StringComparison.OrdinalIgnoreCase));
+                                    
+                                    if (matchedLocale != null)
+                                    {
+                                        _ttsService.SetLanguage(matchedLocale.Language);
+                                        var languageButton = this.FindByName<Button>("LanguageButton");
+                                        if (languageButton != null)
+                                        {
+                                            string displayName = _ttsService.GetLanguageDisplayName(matchedLocale.Language);
+                                            languageButton.Text = $"{displayName} ▾";
+                                        }
+                                    }
+                                }
+                                _isLanguageInitialized = true;
+                            }
+
+                            // Check last sync time and auto-sync if needed
+                            var lastSync = await _database.GetLastSyncTimeAsync("poi_last_sync");
+                            var hoursSinceSync = lastSync.HasValue 
+                                ? (DateTime.Now - lastSync.Value).TotalHours 
+                                : 24;
+
+                            if (hoursSinceSync > 12)
+                            {
+                                System.Diagnostics.Debug.WriteLine("[MainPage] Auto-syncing POIs (>12 hours since last sync)...");
+                                var poiApiUrl = GetPoiApiUrl();
+                                var supabaseAnonKey = GetSupabaseAnonKey();
+                                bool synced = await _placeService.SyncPOIsFromApiAsync(poiApiUrl, supabaseAnonKey);
+                                
+                                if (synced)
+                                {
+                                    // Cleanup old soft-deleted POIs (>90 days)
+                                    await _placeService.CleanupSoftDeletedPOIsAsync(daysOld: 90);
                                 }
                             }
-                            catch { }
 
-                            string buttonText = displayName.Split('(')[0].Trim();
-                            languageButton.Text = $"{buttonText} ▾";
+                            // ✅ Location permission & positioning (IMPORTANT)
+                            System.Diagnostics.Debug.WriteLine("[Location] Requesting location permission...");
+                            await CheckAndRequestLocationPermission();
+
+                            // Enable map location display
+                            if (this.FindByName<Microsoft.Maui.Controls.Maps.Map>("MyMap") is { } map)
+                            {
+                                map.IsShowingUser = true;
+                                System.Diagnostics.Debug.WriteLine("[Location] Map location display enabled");
+                            }
                         }
-                    }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[MainPage.OnAppearing] Error: {ex.Message}\n{ex.StackTrace}");
+                            await DisplayAlert("Lỗi", $"Lỗi khởi tạo: {ex.Message}", "OK");
+                        }
+                    });
                 }
-            }
-            catch { }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainPage.OnAppearing] Critical error: {ex.Message}");
+                }
+            });
         }
 
         protected override void OnDisappearing()
@@ -129,70 +210,117 @@ namespace ThuyetMinhTuDong
 
         private async Task CheckAndRequestLocationPermission()
         {
-            var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-
-            if (status != PermissionStatus.Granted)
+            System.Diagnostics.Debug.WriteLine("[Location] CheckAndRequestLocationPermission called");
+            
+            try
             {
-                status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-            }
+                bool permissionGranted = await _locationService.CheckAndRequestPermissionAsync();
+                System.Diagnostics.Debug.WriteLine($"[Location] Permission granted: {permissionGranted}");
 
-            if (status == PermissionStatus.Granted)
-            {
-                // Khi quyền được cấp, Map sẽ tự động hiển thị vị trí
-                if (this.FindByName<Microsoft.Maui.Controls.Maps.Map>("MyMap") is { } map)
+                if (permissionGranted)
                 {
-                    map.IsShowingUser = true;
-
-                    try
+                    System.Diagnostics.Debug.WriteLine("[Location] Getting current location...");
+                    var location = await _locationService.GetCurrentLocationAsync();
+                    
+                    if (location != null)
                     {
-                        var location = await Geolocation.GetLastKnownLocationAsync() ?? await Geolocation.GetLocationAsync(new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(10)));
-                        if (location != null)
+                        System.Diagnostics.Debug.WriteLine($"[Location] Got location: {location.Latitude}, {location.Longitude}");
+                        
+                        if (this.FindByName<Microsoft.Maui.Controls.Maps.Map>("MyMap") is { } map)
                         {
-                            map.MoveToRegion(Microsoft.Maui.Maps.MapSpan.FromCenterAndRadius(new Microsoft.Maui.Devices.Sensors.Location(location.Latitude, location.Longitude), Microsoft.Maui.Maps.Distance.FromKilometers(1)));
+                            System.Diagnostics.Debug.WriteLine("[Location] Map found, moving to region...");
+                            map.IsShowingUser = true;
+                            
+                            var mapSpan = _locationService.CreateMapSpan(location);
+                            map.MoveToRegion(mapSpan);
 
-                            AddDummyPinsToMap(map, location);
+                            await AddPOIsToMapAsync(map, location);
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine("[Location] ERROR: Map not found!");
                         }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        // Xử lý lỗi nếu không lấy được vị trí
-                        Console.WriteLine($"Lỗi lấy vị trí: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine("[Location] ERROR: Could not get current location");
                     }
                 }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[Location] Permission not granted");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                await DisplayAlert("Quyền bị từ chối", "Không thể hiển thị vị trí của bạn vì thiếu quyền truy cập.", "OK");
+                System.Diagnostics.Debug.WriteLine($"[Location] Exception: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
-        private async void AddDummyPinsToMap(Microsoft.Maui.Controls.Maps.Map map, Location userLocation)
+        private string GetConfiguredLanApiHost()
+        {
+            var configuredHost = Preferences.Default.Get(ApiHostPreferenceKey, DefaultLanApiHost)?.Trim();
+
+            if (string.IsNullOrWhiteSpace(configuredHost))
+            {
+                configuredHost = DefaultLanApiHost;
+            }
+
+            if (!configuredHost.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !configuredHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                configuredHost = $"http://{configuredHost}";
+            }
+
+            return configuredHost.TrimEnd('/');
+        }
+
+        private string GetSupabaseAnonKey()
+        {
+            var configuredKey = Preferences.Default.Get(SupabaseAnonKeyPreferenceKey, DefaultSupabaseAnonKey)?.Trim();
+            return configuredKey ?? string.Empty;
+        }
+
+        private string GetPoiApiUrl()
+        {
+            var configuredHost = GetConfiguredLanApiHost();
+            if (!string.IsNullOrWhiteSpace(configuredHost))
+            {
+                return $"{configuredHost}{PoiApiPath}";
+            }
+
+            if (DeviceInfo.Platform == DevicePlatform.Android && DeviceInfo.DeviceType == DeviceType.Virtual)
+            {
+                return $"{AndroidEmulatorApiHost}{PoiApiPath}";
+            }
+
+            return $"{WindowsApiHost}{PoiApiPath}";
+        }
+
+        private async Task AddPOIsToMapAsync(Microsoft.Maui.Controls.Maps.Map map, Location userLocation)
         {
             map.Pins.Clear();
 
-            // First check if database has POIs, if not, insert dummy ones
-            var existingPois = await _database.GetPOIsAsync();
-            if (existingPois == null || existingPois.Count == 0)
+            var poiApiUrl = GetPoiApiUrl();
+            var supabaseAnonKey = GetSupabaseAnonKey();
+            System.Diagnostics.Debug.WriteLine($"[POI_FLOW] Start sync. API: {poiApiUrl}");
+            bool synced = await _placeService.SyncPOIsFromApiAsync(poiApiUrl, supabaseAnonKey);
+            System.Diagnostics.Debug.WriteLine($"[POI_FLOW] Sync success: {synced}");
+
+            if (!synced)
             {
-                var dummyPois = new List<PointOfInterest>
-                {
-                    new PointOfInterest { Name = "Bún bò Huế Cô Ba", Description = "Quán bún bò nổi tiếng hơn 30 năm", Latitude = userLocation.Latitude + 0.002, Longitude = userLocation.Longitude + 0.002 },
-                    new PointOfInterest { Name = "Đại Nội Huế", Description = "Hoàng thành lịch sử", Latitude = userLocation.Latitude - 0.003, Longitude = userLocation.Longitude + 0.001 },
-                    new PointOfInterest { Name = "Cafe Muối", Description = "Đặc sản đồ uống nổi tiếng", Latitude = userLocation.Latitude + 0.001, Longitude = userLocation.Longitude - 0.004 }
-                };
-
-                foreach (var poi in dummyPois)
-                {
-                    await _database.SavePOIAsync(poi);
-                }
-
-                existingPois = await _database.GetPOIsAsync();
+                System.Diagnostics.Debug.WriteLine("[POI_FLOW] Sync failed -> using default POIs.");
+                await _placeService.EnsureDefaultPOIsAsync(userLocation);
             }
+
+            // ✅ Get only active POIs (not soft-deleted)
+            var pois = await _placeService.GetAllActivePOIsAsync(forceRefresh: true);
+            System.Diagnostics.Debug.WriteLine($"[POI_FLOW] Active POIs loaded: {pois.Count}");
 
             var nearbyList = this.FindByName<VerticalStackLayout>("NearbyPlacesList");
             var emptyLabel = this.FindByName<Label>("EmptyNearbyLabel");
 
-            if (emptyLabel != null && existingPois.Count > 0)
+            if (emptyLabel != null && pois.Count > 0)
             {
                 emptyLabel.IsVisible = false;
             }
@@ -202,51 +330,63 @@ namespace ThuyetMinhTuDong
                 nearbyList.Children.Clear();
             }
 
-            foreach (var poi in existingPois)
+            foreach (var poi in pois)
             {
-                var pin = new Microsoft.Maui.Controls.Maps.Pin
+                var pin = _placeService.CreateMapPin(poi);
+                if (pin != null)
                 {
-                    Label = poi.Name,
-                    Address = poi.Description,
-                    Type = Microsoft.Maui.Controls.Maps.PinType.Place,
-                    Location = new Location(poi.Latitude, poi.Longitude)
-                };
+                    pin.MarkerClicked += (s, args) =>
+                    {
+                        OnPlaceSelected(poi.Name, poi.Description, "Bản đồ");
+                    };
 
-                pin.MarkerClicked += (s, args) =>
-                {
-                    OnPlaceSelected(poi.Name, poi.Description, "Bản đồ");
-                };
-
-                map.Pins.Add(pin);
+                    map.Pins.Add(pin);
+                }
 
                 if (nearbyList != null)
                 {
-                    var itemLayout = new Border
-                    {
-                        BackgroundColor = Color.FromArgb("#1A1111"),
-                        Stroke = Color.FromArgb("#B71C1C"),
-                        Padding = 15,
-                        StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 12 }
-                    };
-
-                    var tapGesture = new TapGestureRecognizer();
-                    tapGesture.Tapped += (s, e) =>
-                    {
-                        OnPlaceSelected(poi.Name, poi.Description, "Gần bạn");
-                    };
-                    itemLayout.GestureRecognizers.Add(tapGesture);
-
-                    var contentLayout = new VerticalStackLayout { Spacing = 5 };
-                    contentLayout.Children.Add(new Label { Text = pin.Label, TextColor = Colors.White, FontAttributes = FontAttributes.Bold, FontSize = 16 });
-                    contentLayout.Children.Add(new Label { Text = pin.Address, TextColor = Color.FromArgb("#A0938A"), FontSize = 13 });
-
-                    itemLayout.Content = contentLayout;
-                    nearbyList.Children.Add(itemLayout);
+                    CreateAndAddNearbyPlaceItem(nearbyList, poi);
                 }
             }
+
+            System.Diagnostics.Debug.WriteLine($"[POI_FLOW] Pins rendered on map: {map.Pins.Count}");
         }
 
-        private bool isExpanded = false;
+        private void CreateAndAddNearbyPlaceItem(VerticalStackLayout nearbyList, PointOfInterest poi)
+        {
+            var itemLayout = new Border
+            {
+                BackgroundColor = Color.FromArgb("#1A1111"),
+                Stroke = Color.FromArgb("#B71C1C"),
+                Padding = 15,
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 12 }
+            };
+
+            var tapGesture = new TapGestureRecognizer();
+            tapGesture.Tapped += (s, e) =>
+            {
+                OnPlaceSelected(poi.Name, poi.Description, "Gần bạn");
+            };
+            itemLayout.GestureRecognizers.Add(tapGesture);
+
+            var contentLayout = new VerticalStackLayout { Spacing = 5 };
+            contentLayout.Children.Add(new Label
+            {
+                Text = poi.Name,
+                TextColor = Colors.White,
+                FontAttributes = FontAttributes.Bold,
+                FontSize = 16
+            });
+            contentLayout.Children.Add(new Label
+            {
+                Text = poi.Description,
+                TextColor = Color.FromArgb("#A0938A"),
+                FontSize = 13
+            });
+
+            itemLayout.Content = contentLayout;
+            nearbyList.Children.Add(itemLayout);
+        }
 
         private async void OnSwipeUp(object sender, SwipedEventArgs e)
         {
@@ -366,92 +506,25 @@ namespace ThuyetMinhTuDong
             }
         }
 
-        private async void OnQRScannerClicked(object sender, EventArgs e)
-        {
-            try
-            {
-                // Request camera permission
-                var cameraStatus = await Permissions.CheckStatusAsync<Permissions.Camera>();
-                if (cameraStatus != PermissionStatus.Granted)
-                {
-                    cameraStatus = await Permissions.RequestAsync<Permissions.Camera>();
-                }
-
-                if (cameraStatus == PermissionStatus.Granted)
-                {
-                    await Shell.Current.GoToAsync("qrscanner");
-                }
-                else
-                {
-                    await DisplayAlert("Quyền bị từ chối", "Cần cấp quyền truy cập camera để quét mã QR.", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Lỗi", $"Không thể mở camera: {ex.Message}", "OK");
-            }
-        }
-
-        private async Task HandleQRCodeResult(string qrId)
-        {
-            try
-            {
-                if (int.TryParse(qrId, out int id))
-                {
-                    var qrCode = await _database.GetQRCodesAsync();
-                    var scannedQR = qrCode.FirstOrDefault(q => q.Id == id);
-
-                    if (scannedQR != null)
-                    {
-                        // Update Tab 1 with QR code data
-                        UpdateTab1Content("Quét mã QR", scannedQR.Name, scannedQR.Description);
-
-                        // Select Tab 1
-                        UpdateTabVisuals(1);
-
-                        // Expand the drawer if not already expanded
-                        ExpandDrawerIfNeeded();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Lỗi", $"Không thể xử lý mã QR: {ex.Message}", "OK");
-            }
-        }
-
         private async Task HandleLanguageSelection(string languageCode, string displayName)
         {
             try
             {
-                if (_availableLocales == null)
-                {
-                    _availableLocales = await TextToSpeech.Default.GetLocalesAsync();
-                }
+                _ttsService.SetLanguage(languageCode);
 
-                _selectedLanguageCode = languageCode;
-
-                // Cập nhật nút hiển thị ngôn ngữ
+                // Update language button
                 var languageButton = this.FindByName<Button>("LanguageButton");
                 if (languageButton != null)
                 {
-                    languageButton.Text = $"{displayName} ▾";
+                    string buttonText = !string.IsNullOrEmpty(displayName) ? displayName : languageCode;
+                    languageButton.Text = $"{buttonText} ▾";
                 }
-
-                // Tự động chọn giọng đọc đầu tiên của ngôn ngữ này
-                _selectedLocale = _availableLocales?.FirstOrDefault(x => x.Language == _selectedLanguageCode);
             }
             catch (Exception ex)
             {
                 await DisplayAlert("Lỗi", $"Không thể cập nhật ngôn ngữ: {ex.Message}", "OK");
             }
         }
-
-        private CancellationTokenSource _ttsCts;
-        private bool _isPlaying = false;
-        private Locale _selectedLocale;
-        private IEnumerable<Locale> _availableLocales;
-        private string _selectedLanguageCode;
 
         private async void OnAddLanguageClicked(object sender, EventArgs e)
         {
@@ -470,28 +543,16 @@ namespace ThuyetMinhTuDong
         {
             try
             {
-                if (_availableLocales == null)
+                if (_ttsService.AvailableLocales == null)
+                    return;
+
+                if (string.IsNullOrEmpty(_ttsService.SelectedLanguageCode))
                 {
-                    _availableLocales = await TextToSpeech.Default.GetLocalesAsync();
+                    await DisplayAlert("Thông báo", "Không tìm thấy giọng nói nào trên thiết bị.", "OK");
+                    return;
                 }
 
-                if (string.IsNullOrEmpty(_selectedLanguageCode))
-                {
-                    // Nếu chưa chọn ngôn ngữ, lấy ngôn ngữ của giọng đầu tiên làm mặc định
-                    var defaultLocale = _availableLocales?.FirstOrDefault();
-                    if (defaultLocale != null)
-                    {
-                        _selectedLanguageCode = defaultLocale.Language;
-                        _selectedLocale = defaultLocale;
-                    }
-                    else
-                    {
-                        await DisplayAlert("Thông báo", "Không tìm thấy giọng nói nào trên thiết bị.", "OK");
-                        return;
-                    }
-                }
-
-                var voicesForLanguage = _availableLocales.Where(x => x.Language == _selectedLanguageCode).ToList();
+                var voicesForLanguage = _ttsService.GetVoicesForLanguage(_ttsService.SelectedLanguageCode);
 
                 if (!voicesForLanguage.Any())
                 {
@@ -500,12 +561,16 @@ namespace ThuyetMinhTuDong
                 }
 
                 var voiceNames = voicesForLanguage.Select(x => x.Name).ToArray();
-                string action = await DisplayActionSheet($"Chọn giọng ({_selectedLanguageCode})", "Đóng", null, voiceNames);
+                string action = await DisplayActionSheet($"Chọn giọng ({_ttsService.SelectedLanguageCode})", "Đóng", null, voiceNames);
 
                 if (action != null && action != "Đóng")
                 {
-                    _selectedLocale = voicesForLanguage.FirstOrDefault(x => x.Name == action);
-                    await DisplayAlert("Thành công", $"Đã chọn giọng: {_selectedLocale?.Name}", "OK");
+                    var selectedVoice = voicesForLanguage.FirstOrDefault(x => x.Name == action);
+                    if (selectedVoice != null)
+                    {
+                        _ttsService.SetVoice(selectedVoice);
+                        await DisplayAlert("Thành công", $"Đã chọn giọng: {selectedVoice.Name}", "OK");
+                    }
                 }
             }
             catch (Exception ex)
@@ -520,135 +585,32 @@ namespace ThuyetMinhTuDong
             if (ttsSwitch != null && !ttsSwitch.IsToggled)
                 return;
 
-            var playPauseIcon = this.FindByName<Label>("PlayPauseIcon");
-            var descriptionLabel = this.FindByName<Label>("DescriptionLabel");
-
-            if (_isPlaying)
+            if (_ttsService.IsPlaying)
             {
-                // Stop TTS
-                if (_ttsCts != null)
-                {
-                    _ttsCts.Cancel();
-                    _ttsCts.Dispose();
-                    _ttsCts = null;
-                }
-
-                if (playPauseIcon != null) playPauseIcon.Text = "▶";
-                _isPlaying = false;
+                _ttsService.StopSpeaking();
             }
             else
             {
-                if (descriptionLabel == null || string.IsNullOrWhiteSpace(descriptionLabel.Text))
-                    return;
+                var textToSpeak = !string.IsNullOrWhiteSpace(_currentDescriptionVietnamese)
+                    ? _currentDescriptionVietnamese
+                    : this.FindByName<Label>("DescriptionLabel")?.Text;
 
-                if (playPauseIcon != null) playPauseIcon.Text = "⏸";
-                _isPlaying = true;
-
-                _ttsCts = new CancellationTokenSource();
-
-                try
+                if (!string.IsNullOrWhiteSpace(textToSpeak))
                 {
-                    var options = new SpeechOptions();
-                    string textToSpeak = descriptionLabel.Text;
-
-                    if (_selectedLocale != null)
-                    {
-                        options.Locale = _selectedLocale;
-
-                        // Chờ dịch văn bản nếu ngôn ngữ khác tiếng Việt
-                        textToSpeak = await TranslateTextAsync(textToSpeak, _selectedLocale.Language);
-                    }
-
-                    // Kiểm tra huỷ yêu cầu (nếu người dùng bấm nút Dừng khi đang dịch)
-                    _ttsCts.Token.ThrowIfCancellationRequested();
-
-                    await TextToSpeech.Default.SpeakAsync(textToSpeak, options, cancelToken: _ttsCts.Token);
+                    await _ttsService.SpeakAsync(textToSpeak);
                 }
-                catch (TaskCanceledException) { }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Lỗi TTS: {ex.Message}");
-                }
-                finally
-                {
-                    if (_isPlaying)
-                    {
-                        if (playPauseIcon != null) playPauseIcon.Text = "▶";
-                        _isPlaying = false;
-                    }
-                }
-            }
-        }
-
-        private async Task<string> TranslateTextAsync(string text, string targetLangCode)
-        {
-            if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(targetLangCode))
-                return text;
-
-            try
-            {
-                // Lấy đúng mã 2 ký tự (VD: "en", "ja", "fr")
-                string langCode = targetLangCode;
-                try
-                {
-                    langCode = new System.Globalization.CultureInfo(targetLangCode).TwoLetterISOLanguageName.ToLower();
-                }
-                catch
-                {
-                    langCode = targetLangCode.Split('-')[0].ToLower();
-                }
-
-                if (langCode == "vi") return text; // Không cần dịch nếu là tiếng Việt
-
-                string url = $"https://translate.googleapis.com/translate_a/single?client=gtx&sl=vi&tl={langCode}&dt=t&q={Uri.EscapeDataString(text)}";
-
-                using HttpClient client = new HttpClient();
-                // Bổ sung User-Agent để không bị Google chặn
-                client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-                string response = await client.GetStringAsync(url);
-
-                var jsonDoc = System.Text.Json.JsonDocument.Parse(response);
-                var root = jsonDoc.RootElement;
-                string translatedResult = "";
-
-                if (root.ValueKind == System.Text.Json.JsonValueKind.Array && root.GetArrayLength() > 0)
-                {
-                    var firstItem = root[0];
-                    if (firstItem.ValueKind == System.Text.Json.JsonValueKind.Array)
-                    {
-                        foreach (var item in firstItem.EnumerateArray())
-                        {
-                            if (item.ValueKind == System.Text.Json.JsonValueKind.Array && item.GetArrayLength() > 0)
-                            {
-                                translatedResult += item[0].GetString();
-                            }
-                        }
-                    }
-                }
-
-                return !string.IsNullOrWhiteSpace(translatedResult) ? translatedResult : text;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Lỗi dịch thuật: {ex.Message}");
-                return text; // Trả về văn bản gốc nếu lỗi
             }
         }
 
         private void UpdateTab1Content(string source, string name, string description)
         {
-            // Dừng phát TTS nếu đang đọc
-            if (_isPlaying)
+            // Store original description in Vietnamese
+            _currentDescriptionVietnamese = description;
+
+            // Stop TTS if playing
+            if (_ttsService.IsPlaying)
             {
-                if (_ttsCts != null)
-                {
-                    _ttsCts.Cancel();
-                    _ttsCts.Dispose();
-                    _ttsCts = null;
-                }
-                var playPauseIcon = this.FindByName<Label>("PlayPauseIcon");
-                if (playPauseIcon != null) playPauseIcon.Text = "▶";
-                _isPlaying = false;
+                _ttsService.StopSpeaking();
             }
 
             var tab1Content = this.FindByName<Border>("Tab1Content");
@@ -702,11 +664,19 @@ namespace ThuyetMinhTuDong
             }
         }
 
-        private void OnPlaceSelected(string name, string description, string source)
+        private async void OnPlaceSelected(string name, string description, string source)
         {
             UpdateTab1Content(source, name, description);
             UpdateTabVisuals(1);
             ExpandDrawerIfNeeded();
+
+            // Auto-play TTS if enabled
+            var ttsSwitch = this.FindByName<Switch>("TtsSwitch");
+            if (ttsSwitch != null && ttsSwitch.IsToggled && !_ttsService.IsPlaying)
+            {
+                await Task.Delay(100);
+                await _ttsService.SpeakAsync(description);
+            }
         }
     }
 }

@@ -11,9 +11,4 @@
         ContentTemplate="{DataTemplate local:MainPage}"
         Route="main" />
 
-    <ShellContent
-        Title="QR Scanner"
-        ContentTemplate="{DataTemplate local:QRScannerPage}"
-        Route="qrscanner" />
-
 </Shell>
