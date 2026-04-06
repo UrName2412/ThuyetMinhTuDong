@@ -10,13 +10,11 @@ namespace ThuyetMinhTuDong
     [QueryProperty(nameof(SelectedLanguageDisplay), "selectedLanguageDisplay")]
     public partial class MainPage : ContentPage
     {
-    private const string PoiApiPath = "/rest/v1/poi?select=*";
-    private const string WindowsApiHost = "http://localhost";
-    private const string AndroidEmulatorApiHost = "http://10.0.2.2";
-    private const string DefaultLanApiHost = "https://vkicutmxykziwygemslh.supabase.co";
-    private const string ApiHostPreferenceKey = "poi_api_host";
-    private const string SupabaseAnonKeyPreferenceKey = "supabase_anon_key";
-    private const string DefaultSupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZraWN1dG14eWt6aXd5Z2Vtc2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MTc1NDAsImV4cCI6MjA5MDk5MzU0MH0.SVNFu7wpI-TTLRXDvAOX_KPRXIvX7TEQapi0DjNX2z0";
+        private const string PoiApiPath = "/rest/v1/poi?select=*";
+        private const string DefaultSupabaseHost = "https://vkicutmxykziwygemslh.supabase.co";
+        private const string ApiHostPreferenceKey = "poi_api_host";
+        private const string SupabaseAnonKeyPreferenceKey = "supabase_anon_key";
+        private const string DefaultSupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZraWN1dG14eWt6aXd5Z2Vtc2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MTc1NDAsImV4cCI6MjA5MDk5MzU0MH0.SVNFu7wpI-TTLRXDvAOX_KPRXIvX7TEQapi0DjNX2z0";
 
         private readonly LocalDatabase _database;
         private readonly TTSService _ttsService;
@@ -68,12 +66,12 @@ namespace ThuyetMinhTuDong
             InitializeComponent();
             _database = database;
 
-            // Initialize services
+            // Khởi tạo các service
             _ttsService = new TTSService(database);
             _locationService = new LocationService();
             _placeService = new PlaceService(database);
 
-            // Subscribe to service events
+            // Đăng ký sự kiện từ service
             SubscribeToServiceEvents();
         }
 
@@ -111,18 +109,16 @@ namespace ThuyetMinhTuDong
             {
                 try
                 {
-                    // 🧹 CLEANUP: Delete POIs with empty names (non-blocking)
-                    System.Diagnostics.Debug.WriteLine("[Startup] Cleaning up POIs with empty names...");
+                    // DỌN DẸP: Xóa các POI không có tên (không chặn luồng chính)
                     try
                     {
                         await _database.DeleteEmptyNamePOIsAsync();
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Startup] Cleanup warning: {ex.Message}");
                     }
 
-                    // Initialize TTS service
+                    // Khởi tạo dịch vụ TTS
                     await _ttsService.InitializeAsync();
 
                     MainThread.BeginInvokeOnMainThread(async () =>
@@ -131,7 +127,7 @@ namespace ThuyetMinhTuDong
                         {
                             if (!_isLanguageInitialized)
                             {
-                                // Set default language to device's system language
+                                // Đặt ngôn ngữ mặc định theo ngôn ngữ hệ thống của thiết bị
                                 var deviceLanguage = System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
                                 if (_ttsService.AvailableLocales?.Any() == true)
                                 {
@@ -152,7 +148,7 @@ namespace ThuyetMinhTuDong
                                 _isLanguageInitialized = true;
                             }
 
-                            // Check last sync time and auto-sync if needed
+                            // Kiểm tra thời gian đồng bộ lần cuối và tự động đồng bộ nếu cần
                             var lastSync = await _database.GetLastSyncTimeAsync("poi_last_sync");
                             var hoursSinceSync = lastSync.HasValue 
                                 ? (DateTime.Now - lastSync.Value).TotalHours 
@@ -160,39 +156,34 @@ namespace ThuyetMinhTuDong
 
                             if (hoursSinceSync > 12)
                             {
-                                System.Diagnostics.Debug.WriteLine("[MainPage] Auto-syncing POIs (>12 hours since last sync)...");
                                 var poiApiUrl = GetPoiApiUrl();
                                 var supabaseAnonKey = GetSupabaseAnonKey();
                                 bool synced = await _placeService.SyncPOIsFromApiAsync(poiApiUrl, supabaseAnonKey);
-                                
+
                                 if (synced)
                                 {
-                                    // Cleanup old soft-deleted POIs (>90 days)
+                                    // Dọn dẹp các POI đã xóa mềm quá cũ (>90 ngày)
                                     await _placeService.CleanupSoftDeletedPOIsAsync(daysOld: 90);
                                 }
                             }
 
-                            // ✅ Location permission & positioning (IMPORTANT)
-                            System.Diagnostics.Debug.WriteLine("[Location] Requesting location permission...");
+                            // Yêu cầu quyền vị trí và định vị
                             await CheckAndRequestLocationPermission();
 
-                            // Enable map location display
+                            // Bật hiển thị vị trí trên bản đồ
                             if (this.FindByName<Microsoft.Maui.Controls.Maps.Map>("MyMap") is { } map)
                             {
                                 map.IsShowingUser = true;
-                                System.Diagnostics.Debug.WriteLine("[Location] Map location display enabled");
                             }
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[MainPage.OnAppearing] Error: {ex.Message}\n{ex.StackTrace}");
                             await DisplayAlert("Lỗi", $"Lỗi khởi tạo: {ex.Message}", "OK");
                         }
                     });
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[MainPage.OnAppearing] Critical error: {ex.Message}");
                 }
             });
         }
@@ -210,66 +201,46 @@ namespace ThuyetMinhTuDong
 
         private async Task CheckAndRequestLocationPermission()
         {
-            System.Diagnostics.Debug.WriteLine("[Location] CheckAndRequestLocationPermission called");
-            
             try
             {
                 bool permissionGranted = await _locationService.CheckAndRequestPermissionAsync();
-                System.Diagnostics.Debug.WriteLine($"[Location] Permission granted: {permissionGranted}");
 
                 if (permissionGranted)
                 {
-                    System.Diagnostics.Debug.WriteLine("[Location] Getting current location...");
                     var location = await _locationService.GetCurrentLocationAsync();
-                    
+
                     if (location != null)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Location] Got location: {location.Latitude}, {location.Longitude}");
-                        
                         if (this.FindByName<Microsoft.Maui.Controls.Maps.Map>("MyMap") is { } map)
                         {
-                            System.Diagnostics.Debug.WriteLine("[Location] Map found, moving to region...");
                             map.IsShowingUser = true;
-                            
+
                             var mapSpan = _locationService.CreateMapSpan(location);
                             map.MoveToRegion(mapSpan);
 
                             await AddPOIsToMapAsync(map, location);
                         }
-                        else
-                        {
-                            System.Diagnostics.Debug.WriteLine("[Location] ERROR: Map not found!");
-                        }
                     }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine("[Location] ERROR: Could not get current location");
-                    }
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("[Location] Permission not granted");
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"[Location] Exception: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
-        private string GetConfiguredLanApiHost()
+        private string GetConfiguredSupabaseHost()
         {
-            var configuredHost = Preferences.Default.Get(ApiHostPreferenceKey, DefaultLanApiHost)?.Trim();
+            var configuredHost = Preferences.Default.Get(ApiHostPreferenceKey, DefaultSupabaseHost)?.Trim();
 
             if (string.IsNullOrWhiteSpace(configuredHost))
             {
-                configuredHost = DefaultLanApiHost;
+                configuredHost = DefaultSupabaseHost;
             }
 
             if (!configuredHost.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
                 !configuredHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
-                configuredHost = $"http://{configuredHost}";
+                configuredHost = $"https://{configuredHost}";
             }
 
             return configuredHost.TrimEnd('/');
@@ -283,18 +254,10 @@ namespace ThuyetMinhTuDong
 
         private string GetPoiApiUrl()
         {
-            var configuredHost = GetConfiguredLanApiHost();
-            if (!string.IsNullOrWhiteSpace(configuredHost))
-            {
-                return $"{configuredHost}{PoiApiPath}";
-            }
-
-            if (DeviceInfo.Platform == DevicePlatform.Android && DeviceInfo.DeviceType == DeviceType.Virtual)
-            {
-                return $"{AndroidEmulatorApiHost}{PoiApiPath}";
-            }
-
-            return $"{WindowsApiHost}{PoiApiPath}";
+            var configuredHost = GetConfiguredSupabaseHost();
+            return string.IsNullOrWhiteSpace(configuredHost) 
+                ? string.Empty 
+                : $"{configuredHost}{PoiApiPath}";
         }
 
         private async Task AddPOIsToMapAsync(Microsoft.Maui.Controls.Maps.Map map, Location userLocation)
@@ -303,19 +266,15 @@ namespace ThuyetMinhTuDong
 
             var poiApiUrl = GetPoiApiUrl();
             var supabaseAnonKey = GetSupabaseAnonKey();
-            System.Diagnostics.Debug.WriteLine($"[POI_FLOW] Start sync. API: {poiApiUrl}");
             bool synced = await _placeService.SyncPOIsFromApiAsync(poiApiUrl, supabaseAnonKey);
-            System.Diagnostics.Debug.WriteLine($"[POI_FLOW] Sync success: {synced}");
 
             if (!synced)
             {
-                System.Diagnostics.Debug.WriteLine("[POI_FLOW] Sync failed -> using default POIs.");
                 await _placeService.EnsureDefaultPOIsAsync(userLocation);
             }
 
-            // ✅ Get only active POIs (not soft-deleted)
+            // Lấy các POI đang hoạt động (chưa bị xóa mềm)
             var pois = await _placeService.GetAllActivePOIsAsync(forceRefresh: true);
-            System.Diagnostics.Debug.WriteLine($"[POI_FLOW] Active POIs loaded: {pois.Count}");
 
             var nearbyList = this.FindByName<VerticalStackLayout>("NearbyPlacesList");
             var emptyLabel = this.FindByName<Label>("EmptyNearbyLabel");
@@ -348,8 +307,6 @@ namespace ThuyetMinhTuDong
                     CreateAndAddNearbyPlaceItem(nearbyList, poi);
                 }
             }
-
-            System.Diagnostics.Debug.WriteLine($"[POI_FLOW] Pins rendered on map: {map.Pins.Count}");
         }
 
         private void CreateAndAddNearbyPlaceItem(VerticalStackLayout nearbyList, PointOfInterest poi)
@@ -472,7 +429,7 @@ namespace ThuyetMinhTuDong
             var tab2Content = this.FindByName<View>("Tab2Content");
             var tab3Content = this.FindByName<View>("Tab3Content");
 
-            // Reset tất cả tab headers
+            // Đặt lại hiển thị cho tất cả tiêu đề tab
             if(lblTab1 != null) lblTab1.TextColor = Color.FromArgb("#A0938A");
             if(lineTab1 != null) lineTab1.Color = Color.FromArgb("#3A2121");
             if(lblTab2 != null) lblTab2.TextColor = Color.FromArgb("#A0938A");
@@ -480,7 +437,7 @@ namespace ThuyetMinhTuDong
             if(lblTab3 != null) lblTab3.TextColor = Color.FromArgb("#A0938A");
             if(lineTab3 != null) lineTab3.Color = Color.FromArgb("#3A2121");
 
-            // Ẩn tất cả Tab Content
+            // Ẩn tất cả nội dung Tab
             if(tab1Content != null) tab1Content.IsVisible = false;
             if(tab2Content != null) tab2Content.IsVisible = false;
             if(tab3Content != null) tab3Content.IsVisible = false;
@@ -512,7 +469,7 @@ namespace ThuyetMinhTuDong
             {
                 _ttsService.SetLanguage(languageCode);
 
-                // Update language button
+                // Cập nhật nút ngôn ngữ
                 var languageButton = this.FindByName<Button>("LanguageButton");
                 if (languageButton != null)
                 {
@@ -530,6 +487,17 @@ namespace ThuyetMinhTuDong
         {
             try
             {
+                // Dừng TTS đang phát
+                if (_ttsService.IsPlaying)
+                {
+                    _ttsService.StopSpeaking();
+                    var playPauseIcon = this.FindByName<Label>("PlayPauseIcon");
+                    if (playPauseIcon != null)
+                    {
+                        playPauseIcon.Text = "▶";
+                    }
+                }
+
                 // Mở trang tìm kiếm ngôn ngữ
                 await Shell.Current.GoToAsync("languagesearch");
             }
@@ -604,10 +572,10 @@ namespace ThuyetMinhTuDong
 
         private void UpdateTab1Content(string source, string name, string description)
         {
-            // Store original description in Vietnamese
+            // Lưu mô tả gốc bằng tiếng Việt
             _currentDescriptionVietnamese = description;
 
-            // Stop TTS if playing
+            // Dừng TTS nếu đang phát
             if (_ttsService.IsPlaying)
             {
                 _ttsService.StopSpeaking();
@@ -620,7 +588,7 @@ namespace ThuyetMinhTuDong
             var statusHStack = tab1Content.Content as VerticalStackLayout;
             if (statusHStack != null && statusHStack.Children.Count > 0)
             {
-                // Update status label
+                // Cập nhật nhãn trạng thái
                 if (statusHStack.Children[0] is HorizontalStackLayout statusLayout && statusLayout.Children.Count > 1)
                 {
                     if (statusLayout.Children[1] is Label statusLabel)
@@ -629,16 +597,25 @@ namespace ThuyetMinhTuDong
                     }
                 }
 
-                // Update title
+                // Cập nhật tiêu đề
                 if (statusHStack.Children.Count > 1 && statusHStack.Children[1] is Label titleLabel)
                 {
                     titleLabel.Text = name;
                 }
 
-                // Update description
-                if (statusHStack.Children.Count > 2 && statusHStack.Children[2] is Label descriptionLabel)
+                // Cập nhật mô tả
+                var descriptionLabel = this.FindByName<Label>("DescriptionLabel");
+                if (descriptionLabel != null)
                 {
                     descriptionLabel.Text = description;
+                }
+                else if (statusHStack.Children.Count > 2 && statusHStack.Children[2] is ScrollView sv && sv.Content is Label svDescLabel)
+                {
+                    svDescLabel.Text = description;
+                }
+                else if (statusHStack.Children.Count > 2 && statusHStack.Children[2] is Label oldDescLabel)
+                {
+                    oldDescLabel.Text = description;
                 }
             }
         }
@@ -670,7 +647,7 @@ namespace ThuyetMinhTuDong
             UpdateTabVisuals(1);
             ExpandDrawerIfNeeded();
 
-            // Auto-play TTS if enabled
+            // Tự động phát TTS nếu được bật
             var ttsSwitch = this.FindByName<Switch>("TtsSwitch");
             if (ttsSwitch != null && ttsSwitch.IsToggled && !_ttsService.IsPlaying)
             {

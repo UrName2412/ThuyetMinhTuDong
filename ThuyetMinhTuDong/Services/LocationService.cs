@@ -26,16 +26,15 @@ namespace ThuyetMinhTuDong.Services
                 {
                     PermissionDenied?.Invoke(this, new PermissionDeniedEventArgs
                     {
-                        Message = "Location permission was denied. Unable to show your location."
+                        Message = "Vị trí đã bị từ chối. Không thể hiển thị vị trí của bạn."
                     });
                     return false;
                 }
 
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Permission Error: {ex.Message}");
                 return false;
             }
         }
@@ -59,9 +58,8 @@ namespace ThuyetMinhTuDong.Services
                     return location;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Geolocation Error: {ex.Message}");
             }
 
             return null;

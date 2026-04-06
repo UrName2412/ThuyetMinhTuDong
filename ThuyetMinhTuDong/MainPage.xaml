@@ -6,10 +6,10 @@
              BackgroundColor="#0F0F0F">
 
     <Grid>
-        <!-- MAP PLACEHOLDER (Top Area) -->
+        <!-- Bản đồ (Phần trên) -->
         <maps:Map x:Name="MyMap" IsShowingUser="False" MapType="Street" VerticalOptions="Fill" HorizontalOptions="Fill" />
 
-        <!-- LỚP ĐÈ LÊN TRÊN: Bottom panel -->
+        <!-- LỚP ĐÈ LÊN TRÊN: Khung phía dưới -->
         <VerticalStackLayout VerticalOptions="End" 
                              Padding="15,10,15,30" 
                              Spacing="20" 
@@ -18,18 +18,18 @@
                 <SwipeGestureRecognizer Direction="Up" Swiped="OnSwipeUp" />
                 <SwipeGestureRecognizer Direction="Down" Swiped="OnSwipeDown" />
             </VerticalStackLayout.GestureRecognizers>
-            
-            <!-- Swipe Handle -->
+
+            <!-- Thanh trượt -->
             <BoxView HeightRequest="4" WidthRequest="40" Color="#B71C1C" CornerRadius="2" HorizontalOptions="Center" Margin="0,0,0,5" />
 
-            <!-- Header Row: Language Button & Settings -->
+            <!-- Thanh công cụ: Ngôn ngữ & Cài đặt -->
             <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                 <Button Grid.Column="0" x:Name="LanguageButton" Text="Tiếng Việt ▾" TextColor="White" FontAttributes="Bold" FontSize="13" BackgroundColor="Transparent" Padding="15,8" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" HorizontalOptions="Start" Clicked="OnAddLanguageClicked" />
                 <Button Grid.Column="1" Text="⚙" TextColor="#D4AF37" FontSize="18" BackgroundColor="Transparent" Padding="10" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" Clicked="OnSettingsClicked" />
             </Grid>
 
             <VerticalStackLayout x:Name="ExpandableContent" Spacing="25" HeightRequest="0" Opacity="0" IsVisible="True">
-                <!-- Tabs -->
+                <!-- Các Tab -->
                 <Grid ColumnDefinitions="*, *, *">
                     <VerticalStackLayout Grid.Column="0" Spacing="8" x:Name="Tab1Header">
                         <VerticalStackLayout.GestureRecognizers>
@@ -54,25 +54,26 @@
                     </VerticalStackLayout>
                 </Grid>
 
-                <!-- Media Player Card (Tab 1 Content) -->
+                <!-- Thẻ Trình phát Media (Nội dung Tab 1) -->
                 <Border x:Name="Tab1Content" IsVisible="True" BackgroundColor="#1A1111" Stroke="#B71C1C" Padding="20">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="16"/>
                     </Border.StrokeShape>
                     <VerticalStackLayout Spacing="10">
-                        <!-- Status -->
+                        <!-- Trạng thái -->
                         <HorizontalStackLayout Spacing="8" Margin="0,0,0,5">
                             <Label Text="▶" TextColor="#D4AF37" FontSize="12" VerticalOptions="Center"/>
-                            <Label Text="Đang phát · Bún bò Huế Cô Ba" TextColor="#D4AF37" FontSize="12" FontAttributes="Bold" VerticalOptions="Center"/>
+                            <Label Text="Chưa chọn địa điểm" TextColor="#D4AF37" FontSize="12" FontAttributes="Bold" VerticalOptions="Center"/>
                         </HorizontalStackLayout>
 
-                        <Label Text="Bún bò Huế Cô Ba" TextColor="White" FontAttributes="Bold" FontSize="20"/>
+                        <Label Text="Chọn một địa điểm" TextColor="White" FontAttributes="Bold" FontSize="20"/>
 
-                        <Label x:Name="DescriptionLabel" Text="Quán bún bò nổi tiếng hơn 30 năm tại phố Nguyễn Công Trứ. Nước dùng được ninh từ xương heo và sả, tạo nên hương vị đậm đà đặc trưng miền Trung" 
-                               TextColor="#A0938A" FontSize="13" LineHeight="1.5" LineBreakMode="WordWrap" Margin="0,5,0,10"/>
+                        <ScrollView HeightRequest="130" Margin="0,5,0,10">
+                            <Label x:Name="DescriptionLabel" Text="Vui lòng chọn một địa điểm để xem thông tin chi tiết." 
+                                   TextColor="#A0938A" FontSize="13" LineHeight="1.5" LineBreakMode="WordWrap" />
+                        </ScrollView>
 
-
-                        <!-- Controls -->
+                        <!-- Các nút điều khiển -->
                         <Grid ColumnDefinitions="Auto, Auto, Auto, *, Auto, Auto" Margin="0,20,0,0" VerticalOptions="Center">
                             <Border Grid.Column="0" BackgroundColor="Transparent" Stroke="#D4AF37" Padding="12,8" Margin="0,0,10,0">
                                 <Border.StrokeShape>
@@ -102,18 +103,18 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Tab 2 Content -->
+                <!-- Nội dung Tab 2 -->
                 <VerticalStackLayout x:Name="Tab2Content" IsVisible="False" Spacing="10">
                     <Label Text="Các địa điểm gần bạn" TextColor="White" FontSize="16" FontAttributes="Bold" HorizontalOptions="Start" Margin="0,10,0,0"/>
                     <ScrollView Margin="0,5,0,0" HeightRequest="250">
                         <VerticalStackLayout x:Name="NearbyPlacesList" Spacing="10">
-                            <!-- Items will be populated in code behind -->
+                            <!-- Các mục sẽ được tải từ code -->
                             <Label x:Name="EmptyNearbyLabel" Text="Hiện tại không có mục nào để hiển thị." TextColor="#A0938A" FontSize="14" HorizontalOptions="Center"/>
                         </VerticalStackLayout>
                     </ScrollView>
                 </VerticalStackLayout>
 
-                <!-- Tab 3 Content -->
+                <!-- Nội dung Tab 3 -->
                 <VerticalStackLayout x:Name="Tab3Content" IsVisible="False" Spacing="10">
                     <Label Text="Danh sách yêu thích" TextColor="White" FontSize="16" FontAttributes="Bold" HorizontalOptions="Center" Margin="0,20,0,0"/>
                     <Label Text="Bạn chưa thêm địa điểm nào vào mục yêu thích." TextColor="#A0938A" FontSize="14" HorizontalOptions="Center"/>
