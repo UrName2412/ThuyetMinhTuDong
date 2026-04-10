@@ -9,6 +9,34 @@
         <!-- Bản đồ (Phần trên) -->
         <maps:Map x:Name="MyMap" IsShowingUser="False" MapType="Street" VerticalOptions="Fill" HorizontalOptions="Fill" />
 
+        <!-- Thẻ tọa độ người dùng -->
+        <Border x:Name="CoordBorder"
+                HorizontalOptions="Start"
+                VerticalOptions="Start"
+                Margin="15,50,15,0"
+                Padding="10,8"
+                BackgroundColor="#CC1A1111"
+                Stroke="#B71C1C"
+                ZIndex="20">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="10"/>
+            </Border.StrokeShape>
+            <VerticalStackLayout>
+                <Label x:Name="UserCoordinatesLabel"
+                       Text="📍 Lat: --\nLng: --"
+                       TextColor="White"
+                       FontSize="12"
+                       LineBreakMode="WordWrap"/>
+                <!-- Thẻ tạm thời để kiểm tra Trigger -->
+                <Label x:Name="DebugTriggerLabel"
+                       Text="Chưa vào vùng"
+                       TextColor="Yellow"
+                       FontSize="11"
+                       FontAttributes="Bold"
+                       Margin="0,5,0,0"/>
+            </VerticalStackLayout>
+        </Border>
+
         <!-- LỚP ĐÈ LÊN TRÊN: Khung phía dưới -->
         <VerticalStackLayout VerticalOptions="End" 
                              Padding="15,10,15,30" 
@@ -22,15 +50,15 @@
             <!-- Thanh trượt -->
             <BoxView HeightRequest="4" WidthRequest="40" Color="#B71C1C" CornerRadius="2" HorizontalOptions="Center" Margin="0,0,0,5" />
 
-            <!-- Thanh công cụ: Ngôn ngữ & Cài đặt -->
+            <!-- Thanh công cụ: Ngôn ngữ & GPS -->
             <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                 <Button Grid.Column="0" x:Name="LanguageButton" Text="Tiếng Việt ▾" TextColor="White" FontAttributes="Bold" FontSize="13" BackgroundColor="Transparent" Padding="15,8" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" HorizontalOptions="Start" Clicked="OnAddLanguageClicked" />
-                <Button Grid.Column="1" Text="⚙" TextColor="#D4AF37" FontSize="18" BackgroundColor="Transparent" Padding="10" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" Clicked="OnSettingsClicked" />
+                <Button Grid.Column="1" x:Name="GpsToggleButton" Text="GPS: OFF" TextColor="#D4AF37" FontSize="13" FontAttributes="Bold" BackgroundColor="Transparent" Padding="10" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" />
             </Grid>
 
             <VerticalStackLayout x:Name="ExpandableContent" Spacing="25" HeightRequest="0" Opacity="0" IsVisible="True">
                 <!-- Các Tab -->
-                <Grid ColumnDefinitions="*, *, *">
+                <Grid ColumnDefinitions="*, *">
                     <VerticalStackLayout Grid.Column="0" Spacing="8" x:Name="Tab1Header">
                         <VerticalStackLayout.GestureRecognizers>
                             <TapGestureRecognizer Tapped="OnTab1Tapped" />
@@ -44,13 +72,6 @@
                         </VerticalStackLayout.GestureRecognizers>
                         <Label x:Name="LblTab2" Text="Gần bạn" TextColor="#A0938A" HorizontalOptions="Center" FontSize="14" FontAttributes="Bold"/>
                         <BoxView x:Name="LineTab2" HeightRequest="2" Color="#3A2121" HorizontalOptions="Fill"/>
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Grid.Column="2" Spacing="8" x:Name="Tab3Header">
-                        <VerticalStackLayout.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="OnTab3Tapped" />
-                        </VerticalStackLayout.GestureRecognizers>
-                        <Label x:Name="LblTab3" Text="Yêu thích" TextColor="#A0938A" HorizontalOptions="Center" FontSize="14" FontAttributes="Bold"/>
-                        <BoxView x:Name="LineTab3" HeightRequest="2" Color="#3A2121" HorizontalOptions="Fill"/>
                     </VerticalStackLayout>
                 </Grid>
 
@@ -68,10 +89,30 @@
 
                         <Label Text="Chọn một địa điểm" TextColor="White" FontAttributes="Bold" FontSize="20"/>
 
-                        <ScrollView HeightRequest="130" Margin="0,5,0,10">
+                        <ScrollView HeightRequest="90" Margin="0,5,0,5">
                             <Label x:Name="DescriptionLabel" Text="Vui lòng chọn một địa điểm để xem thông tin chi tiết." 
                                    TextColor="#A0938A" FontSize="13" LineHeight="1.5" LineBreakMode="WordWrap" />
                         </ScrollView>
+
+                        <!-- Danh sách ảnh để bên ngoài ScrollView để không bị cắt -->
+                        <CollectionView ItemsSource="{Binding PoiImages}" HeightRequest="130" Margin="0,0,0,5">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Stroke="#B71C1C" StrokeThickness="1" BackgroundColor="#111111" Padding="0" HeightRequest="130" WidthRequest="190">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="8"/>
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnPoiImageTapped" />
+                                        </Border.GestureRecognizers>
+                                        <Image Source="{Binding ImageUrl}" Aspect="AspectFit" HeightRequest="130" WidthRequest="190" BackgroundColor="#111111" />
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
 
                         <!-- Các nút điều khiển -->
                         <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="0,20,0,0" VerticalOptions="Center">
@@ -117,14 +158,29 @@
                         </VerticalStackLayout>
                     </ScrollView>
                 </VerticalStackLayout>
-
-                <!-- Nội dung Tab 3 -->
-                <VerticalStackLayout x:Name="Tab3Content" IsVisible="False" Spacing="10">
-                    <Label Text="Danh sách yêu thích" TextColor="White" FontSize="16" FontAttributes="Bold" HorizontalOptions="Center" Margin="0,20,0,0"/>
-                    <Label Text="Bạn chưa thêm địa điểm nào vào mục yêu thích." TextColor="#A0938A" FontSize="14" HorizontalOptions="Center"/>
-                </VerticalStackLayout>
             </VerticalStackLayout>
         </VerticalStackLayout>
-    </Grid>
 
+        <!-- Overlay xem ảnh phóng to -->
+        <Grid x:Name="ImagePreviewOverlay" IsVisible="False" BackgroundColor="#CC000000" InputTransparent="False" ZIndex="100">
+            <BoxView x:Name="ImagePreviewBackdrop" BackgroundColor="Transparent" />
+
+            <Grid RowDefinitions="Auto,*" Padding="12,40,12,20" RowSpacing="16">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                    <Label Text="Xem ảnh" TextColor="White" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
+                    <Button x:Name="CloseImagePreviewButton" Grid.Column="1" Text="✕" TextColor="White" BackgroundColor="#333333" WidthRequest="42" HeightRequest="42" CornerRadius="21" />
+                </Grid>
+
+                <CarouselView x:Name="PreviewCarousel" Grid.Row="1" ItemsSource="{Binding PoiImages}">
+                    <CarouselView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Image Source="{Binding ImageUrl}" Aspect="AspectFit" HorizontalOptions="Fill" VerticalOptions="Fill" />
+                            </Grid>
+                        </DataTemplate>
+                    </CarouselView.ItemTemplate>
+                </CarouselView>
+            </Grid>
+        </Grid>
+    </Grid>
 </ContentPage>

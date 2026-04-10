@@ -20,6 +20,15 @@ namespace ThuyetMinhTuDong.Models
         
         [JsonPropertyName("longitude")]
         public double Longitude { get; set; }
+
+        [JsonPropertyName("radius")]
+        public int? Radius { get; set; }
+
+        [JsonPropertyName("classification")]
+        public string Classification { get; set; }
+
+        [JsonPropertyName("minor_category")]
+        public string MinorCategory { get; set; }
         
         [JsonPropertyName("audio_url")]
         public string AudioUrl { get; set; }

@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 using ThuyetMinhTuDong.Data;
 using CommunityToolkit.Maui;
+using ThuyetMinhTuDong.Repositories;
+using ThuyetMinhTuDong.Services;
+using ThuyetMinhTuDong.ViewModels;
 
 namespace ThuyetMinhTuDong
 {
@@ -28,7 +31,14 @@ namespace ThuyetMinhTuDong
             string dbPath = Path.Combine(FileSystem.AppDataDirectory, "ThuyetMinhTuDong.db3");
             builder.Services.AddSingleton(s => ActivatorUtilities.CreateInstance<LocalDatabase>(s, dbPath));
 
-            // Register Dependency Injection
+            builder.Services.AddSingleton<PlaceService>();
+            builder.Services.AddSingleton<LocationService>();
+            builder.Services.AddSingleton<ITranslateService, TranslateService>();
+            builder.Services.AddSingleton<TTSService>();
+            builder.Services.AddSingleton<IPoiRepository, PoiRepository>();
+
+            // Register ViewModels and Pages
+            builder.Services.AddTransient<MainPageViewModel>();
             builder.Services.AddTransient<MainPage>();
 
             return builder.Build();

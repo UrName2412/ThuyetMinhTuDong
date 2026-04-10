@@ -47,10 +47,10 @@ namespace ThuyetMinhTuDong.Services
         {
             try
             {
-                var location = await Geolocation.GetLastKnownLocationAsync() 
-                    ?? await Geolocation.GetLocationAsync(new GeolocationRequest(
-                        GeolocationAccuracy.Medium, 
-                        TimeSpan.FromSeconds(10)));
+                var location = await Geolocation.GetLocationAsync(new GeolocationRequest(
+                    GeolocationAccuracy.Medium, 
+                    TimeSpan.FromSeconds(10)))
+                    ?? await Geolocation.GetLastKnownLocationAsync();
 
                 if (location != null)
                 {
