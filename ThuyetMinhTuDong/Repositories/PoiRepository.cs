@@ -8,6 +8,7 @@ namespace ThuyetMinhTuDong.Repositories
     {
         private readonly LocalDatabase _database;
         private readonly PlaceService _placeService;
+        private static readonly HttpClient _httpClient = new HttpClient();
 
         private const string SupabaseImageApiUrl = "https://vkicutmxykziwygemslh.supabase.co/rest/v1/Image?select=*";
         private const string SupabasePoiApiUrl = "https://vkicutmxykziwygemslh.supabase.co/rest/v1/poi?select=id";
@@ -63,11 +64,11 @@ namespace ThuyetMinhTuDong.Repositories
         {
             try
             {
-                using var client = new HttpClient();
-                client.DefaultRequestHeaders.Add("apikey", SupabaseAnonKey);
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {SupabaseAnonKey}");
+                var requestMessage = new HttpRequestMessage(HttpMethod.Get, "");
+                requestMessage.Headers.Add("apikey", SupabaseAnonKey);
+                requestMessage.Headers.Add("Authorization", $"Bearer {SupabaseAnonKey}");
 
-                var images = await FetchImagesByPoiIdAsync(client, poiId);
+                var images = await FetchImagesByPoiIdAsync(poiId);
                 if (images.Count > 0)
                     return images;
 
@@ -75,10 +76,10 @@ namespace ThuyetMinhTuDong.Repositories
                 // thử tìm id theo tên POI rồi lấy ảnh lại.
                 if (!string.IsNullOrWhiteSpace(poiName))
                 {
-                    var remotePoiIds = await FetchRemotePoiIdsByNameAsync(client, poiName);
+                    var remotePoiIds = await FetchRemotePoiIdsByNameAsync(poiName);
                     foreach (var remotePoiId in remotePoiIds)
                     {
-                        images = await FetchImagesByPoiIdAsync(client, remotePoiId);
+                        images = await FetchImagesByPoiIdAsync(remotePoiId);
                         if (images.Count > 0)
                         {
                             System.Diagnostics.Debug.WriteLine($"[Image Sync] Fallback success. LocalId={poiId}, RemoteId={remotePoiId}, Name={poiName}");
@@ -96,7 +97,7 @@ namespace ThuyetMinhTuDong.Repositories
             }
         }
 
-        private static async Task<List<Models.Image>> FetchImagesByPoiIdAsync(HttpClient client, long poiId)
+        private static async Task<List<Models.Image>> FetchImagesByPoiIdAsync(long poiId)
         {
             var options = new System.Text.Json.JsonSerializerOptions
             {
@@ -105,11 +106,18 @@ namespace ThuyetMinhTuDong.Repositories
 
             // Thử cả Image và image để tránh lỗi phân biệt hoa thường của table
             var url = $"{SupabaseImageApiUrl}&poi_id=eq.{poiId}";
-            var response = await client.GetAsync(url);
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("apikey", SupabaseAnonKey);
+            request.Headers.Add("Authorization", $"Bearer {SupabaseAnonKey}");
+
+            var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
                 url = url.Replace("/Image?", "/image?");
-                response = await client.GetAsync(url);
+                var fallbackRequest = new HttpRequestMessage(HttpMethod.Get, url);
+                fallbackRequest.Headers.Add("apikey", SupabaseAnonKey);
+                fallbackRequest.Headers.Add("Authorization", $"Bearer {SupabaseAnonKey}");
+                response = await _httpClient.SendAsync(fallbackRequest);
             }
 
             if (!response.IsSuccessStatusCode)
@@ -123,7 +131,7 @@ namespace ThuyetMinhTuDong.Repositories
             return images ?? new List<Models.Image>();
         }
 
-        private static async Task<List<long>> FetchRemotePoiIdsByNameAsync(HttpClient client, string poiName)
+        private static async Task<List<long>> FetchRemotePoiIdsByNameAsync(string poiName)
         {
             var options = new System.Text.Json.JsonSerializerOptions
             {
@@ -132,7 +140,12 @@ namespace ThuyetMinhTuDong.Repositories
 
             var encodedName = Uri.EscapeDataString(poiName.Trim());
             var url = $"{SupabasePoiApiUrl}&name=eq.{encodedName}";
-            var response = await client.GetAsync(url);
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("apikey", SupabaseAnonKey);
+            request.Headers.Add("Authorization", $"Bearer {SupabaseAnonKey}");
+
+            var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
                 return new List<long>();
 

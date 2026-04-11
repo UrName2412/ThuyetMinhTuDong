@@ -25,6 +25,7 @@ namespace ThuyetMinhTuDong.ViewModels
 
         private bool _isLanguageInitialized;
         private string _currentDescriptionVietnamese = string.Empty;
+        private string _currentMapLink = string.Empty;
         private string _languageButtonText = "Tiếng Việt ▾";
         private string _nearbyStatusText = "Hiện tại không có mục nào để hiển thị.";
         private bool _isNearbyStatusVisible = true;
@@ -65,6 +66,18 @@ namespace ThuyetMinhTuDong.ViewModels
             get => _currentDescriptionVietnamese;
             set => SetProperty(ref _currentDescriptionVietnamese, value);
         }
+
+        public string CurrentMapLink
+        {
+            get => _currentMapLink;
+            set
+            {
+                SetProperty(ref _currentMapLink, value);
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsMapLinkVisible)));
+            }
+        }
+
+        public bool IsMapLinkVisible => !string.IsNullOrEmpty(_currentMapLink);
 
         public string LanguageButtonText
         {
@@ -159,14 +172,14 @@ namespace ThuyetMinhTuDong.ViewModels
         public Microsoft.Maui.Maps.MapSpan? CreateMapSpan(Location location)
             => _locationService.CreateMapSpan(location);
 
-        public async Task LoadNearbyPoisAsync(Location userLocation)
+        public async Task LoadNearbyPoisAsync(Location userLocation, bool syncApi = true)
         {
             NearbyPois.Clear();
             NearbyStatusText = "Đang tải địa điểm...";
             IsNearbyStatusVisible = true;
 
             bool synced = false;
-            if (EnableRemotePoiSync)
+            if (syncApi && EnableRemotePoiSync)
             {
                 var poiApiUrl = GetPoiApiUrl();
                 var supabaseAnonKey = GetSupabaseAnonKey();

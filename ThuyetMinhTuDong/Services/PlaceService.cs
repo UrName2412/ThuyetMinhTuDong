@@ -14,6 +14,7 @@ namespace ThuyetMinhTuDong.Services
     {
         private readonly LocalDatabase _database;
         private List<PointOfInterest> _cachedPois;
+        private static readonly HttpClient _httpClient = new HttpClient();
 
         public PlaceService(LocalDatabase database)
         {
@@ -76,21 +77,17 @@ namespace ThuyetMinhTuDong.Services
                 if (pois == null || !pois.Any())
                     return false;
 
-                int count = 0;
-                foreach (var poi in pois)
-                {
-                    count += await _database.SavePOIAsync(poi);
-                }
+                int count = await _database.SavePOIsBatchAsync(pois);
 
                 // Invalidate cache on successful saves
                 if (count > 0)
                     _cachedPois = null;
 
-                return count == pois.Count();
+                return count > 0;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Save POIs Error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Save POIs Batch Error: {ex.Message}");
                 return false;
             }
         }
@@ -213,22 +210,18 @@ namespace ThuyetMinhTuDong.Services
             {
                 System.Diagnostics.Debug.WriteLine("[Sync] Starting POI sync...");
 
-                using var client = new HttpClient
-                {
-                    Timeout = TimeSpan.FromSeconds(20)
-                };
-
-                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
                 if (!string.IsNullOrWhiteSpace(apiKey) &&
                     !string.Equals(apiKey, "YOUR_SUPABASE_ANON_KEY", StringComparison.OrdinalIgnoreCase))
                 {
-                    client.DefaultRequestHeaders.Remove("apikey");
-                    client.DefaultRequestHeaders.Add("apikey", apiKey);
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                    request.Headers.Add("apikey", apiKey);
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
                 }
 
-                var response = await client.GetAsync(apiUrl);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                var response = await _httpClient.SendAsync(request, cts.Token);
 
                 System.Diagnostics.Debug.WriteLine($"[Sync] HTTP status: {(int)response.StatusCode}");
 
@@ -298,6 +291,8 @@ namespace ThuyetMinhTuDong.Services
                     System.Diagnostics.Debug.WriteLine($"[Sync] Soft deleted POI: {poiName}");
                 }
 
+                var poisToUpdate = new List<PointOfInterest>();
+
                 // ✅ Handle is_deleted flag from server (if present)
                 foreach (var remotePoi in remotePois)
                 {
@@ -307,32 +302,32 @@ namespace ThuyetMinhTuDong.Services
                     {
                         if (localPoi == null)
                         {
-                           // Not in local DB, but remote says deleted, so just save as deleted so we have the stub
-                           await _database.SavePOIAsync(remotePoi);
+                           poisToUpdate.Add(remotePoi);
                         }
                         else if (!localPoi.IsDeleted)
                         {
                             // Server says deleted, soft delete local copy
                             await _database.SoftDeletePOIAsync(remotePoi.Id);
                             System.Diagnostics.Debug.WriteLine($"[Sync] ✅ Server deleted POI #{remotePoi.Id}: {remotePoi.Name}");
-                            System.Diagnostics.Debug.WriteLine($"[Sync]    → POI soft deleted locally");
-                            System.Diagnostics.Debug.WriteLine($"[Sync]    → Translation cache also deleted");
                         }
                     }
                     else if (!remotePoi.IsDeleted && localPoi?.IsDeleted == true)
                     {
                         // Server says not deleted, restore local copy
                         await _database.RestorePOIAsync(remotePoi.Id);
-                        // Also update the POI details after restore
-                        await _database.SavePOIAsync(remotePoi);
-                        System.Diagnostics.Debug.WriteLine($"[Sync] 🔄 POI #{remotePoi.Id} restored and updated: {remotePoi.Name}");
+                        poisToUpdate.Add(remotePoi);
+                        System.Diagnostics.Debug.WriteLine($"[Sync] 🔄 POI #{remotePoi.Id} restored and queued for update: {remotePoi.Name}");
                     }
                     else if (!remotePoi.IsDeleted)
                     {
-                        // Normal upsert for active POIs
-                        await _database.SavePOIAsync(remotePoi);
-                        System.Diagnostics.Debug.WriteLine($"[Sync] 💾 Saved/Updated POI #{remotePoi.Id}: {remotePoi.Name}");
+                        poisToUpdate.Add(remotePoi);
                     }
+                }
+
+                if (poisToUpdate.Any())
+                {
+                    await _database.SavePOIsBatchAsync(poisToUpdate);
+                    System.Diagnostics.Debug.WriteLine($"[Sync] 💾 Batch Saved/Updated {poisToUpdate.Count} POIs");
                 }
 
                 // Update sync time

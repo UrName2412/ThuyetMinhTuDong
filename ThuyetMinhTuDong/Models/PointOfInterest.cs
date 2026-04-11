@@ -33,6 +33,9 @@ namespace ThuyetMinhTuDong.Models
         [JsonPropertyName("audio_url")]
         public string AudioUrl { get; set; }
 
+        [JsonPropertyName("map_link")]
+        public string MapLink { get; set; }
+
         // Soft delete fields
         [JsonPropertyName("is_deleted")]
         public bool IsDeleted { get; set; } = false;

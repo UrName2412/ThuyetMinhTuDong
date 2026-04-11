@@ -59,6 +59,32 @@ namespace ThuyetMinhTuDong.Data
             }
         }
 
+        public async Task<int> SavePOIsBatchAsync(IEnumerable<PointOfInterest> pois)
+        {
+            await InitAsync();
+            int count = 0;
+            await _database.RunInTransactionAsync(tran =>
+            {
+                foreach (var poi in pois)
+                {
+                    var existingPoi = tran.Find<PointOfInterest>(poi.Id);
+                    if (existingPoi != null)
+                    {
+                        if (existingPoi.IsDeleted && !poi.IsDeleted)
+                        {
+                            poi.IsDeleted = true;
+                        }
+                        count += tran.Update(poi);
+                    }
+                    else
+                    {
+                        count += tran.Insert(poi);
+                    }
+                }
+            });
+            return count;
+        }
+
         public async Task<int> DeletePOIAsync(PointOfInterest poi)
         {
             await InitAsync();

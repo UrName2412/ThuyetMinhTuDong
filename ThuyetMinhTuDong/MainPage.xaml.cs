@@ -21,6 +21,7 @@ namespace ThuyetMinhTuDong
         private CancellationTokenSource? _gpsTrackingCts;
         private int? _lastAutoSpokenPoiId;
         private int? _lastApproachPoiId;
+        private Location? _lastLoadedLocation;
 
         public string SelectedLanguageCode
         {
@@ -203,7 +204,13 @@ namespace ThuyetMinhTuDong
                             var mapSpan = _viewModel.CreateMapSpan(location);
                             map.MoveToRegion(mapSpan);
 
-                            await AddPOIsToMapAsync(map, location);
+                            _lastLoadedLocation = location;
+                            await AddPOIsToMapAsync(map, location, true);
+                        }
+
+                        if (!_isGpsRealtimeEnabled)
+                        {
+                            StartRealtimeGpsTracking();
                         }
                     }
                 }
@@ -249,20 +256,33 @@ namespace ThuyetMinhTuDong
                         var location = await _viewModel.GetCurrentLocationAsync();
                         if (location != null)
                         {
+                            bool shouldReloadPOIs = _lastLoadedLocation == null || 
+                                Location.CalculateDistance(
+                                    location.Latitude, location.Longitude, 
+                                    _lastLoadedLocation.Latitude, _lastLoadedLocation.Longitude, 
+                                    Microsoft.Maui.Devices.Sensors.DistanceUnits.Kilometers) * 1000 > 500;
+
+                            if (shouldReloadPOIs)
+                            {
+                                _lastLoadedLocation = location;
+
+                                // Bắn lệnh cập nhật Map/Danh sách qua UI Thread mốc thời gian nhưng không dùng await để khóa tiến trình loop.
+                                MainThread.BeginInvokeOnMainThread(async () =>
+                                {
+                                    if (this.FindByName<Microsoft.Maui.Controls.Maps.Map>("MyMap") is { } map)
+                                    {
+                                        await AddPOIsToMapAsync(map, location, false);
+                                    }
+                                });
+                            }
+
+                            // Chạy UI Update tọa độ nhẹ nhàng
                             MainThread.BeginInvokeOnMainThread(() =>
                             {
                                 UpdateCoordinateCard(location);
-
-                                if (this.FindByName<Microsoft.Maui.Controls.Maps.Map>("MyMap") is { } map)
-                                {
-                                    var mapSpan = _viewModel.CreateMapSpan(location);
-                                    if (mapSpan != null)
-                                    {
-                                        map.MoveToRegion(mapSpan);
-                                    }
-                                }
                             });
 
+                            // Ưu tiên Thuyết minh không bị trễ theo quá trình update Map
                             await HandleAutoPoiAnnouncementAsync(location);
                         }
                     }
@@ -312,7 +332,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
-        private async Task AddPOIsToMapAsync(Microsoft.Maui.Controls.Maps.Map map, Location userLocation)
+        private async Task AddPOIsToMapAsync(Microsoft.Maui.Controls.Maps.Map map, Location userLocation, bool syncApi = true)
         {
             map.Pins.Clear();
             map.MapElements.Clear(); // Xóa các đường tròn cũ
@@ -333,7 +353,7 @@ namespace ThuyetMinhTuDong
 
             try
             {
-                await _viewModel.LoadNearbyPoisAsync(userLocation);
+                await _viewModel.LoadNearbyPoisAsync(userLocation, syncApi);
 
                 if (emptyLabel != null)
                 {
@@ -655,9 +675,10 @@ namespace ThuyetMinhTuDong
             }
         }
 
-        private void UpdateTab1Content(string source, string name, string description)
+        private void UpdateTab1Content(string source, string name, string description, string mapLink)
         {
             _viewModel.CurrentDescriptionVietnamese = description;
+            _viewModel.CurrentMapLink = mapLink;
 
             // Dừng TTS nếu đang phát
             if (_viewModel.IsPlaying)
@@ -727,7 +748,7 @@ namespace ThuyetMinhTuDong
 
         private async void OnPlaceSelected(PointOfInterest poi, string source)
         {
-            UpdateTab1Content(source, poi.Name, poi.Description);
+            UpdateTab1Content(source, poi.Name, poi.Description, poi.MapLink);
             UpdateTabVisuals(1);
             ExpandDrawerIfNeeded();
 
@@ -778,6 +799,21 @@ namespace ThuyetMinhTuDong
             CloseImagePreview();
         }
 
+        private async void OnOpenMapClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(_viewModel.CurrentMapLink))
+                {
+                    await Launcher.Default.OpenAsync(new Uri(_viewModel.CurrentMapLink));
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Lỗi", $"Không thể mở bản đồ: {ex.Message}", "OK");
+            }
+        }
+
         private async Task HandleAutoPoiAnnouncementAsync(Location currentLocation)
         {
             bool isTtsToggled = false;
@@ -801,25 +837,30 @@ namespace ThuyetMinhTuDong
                 return;
             }
 
-            var nearestPoi = activePois
-                .Select(poi => new
+            PointOfInterest nearestPoiModel = null;
+            double nearestPoiDistance = double.MaxValue;
+            double nearestPoiTriggerRadius = 30;
+
+            foreach (var poi in activePois)
+            {
+                double dist = Location.CalculateDistance(
+                    currentLocation.Latitude,
+                    currentLocation.Longitude,
+                    poi.Latitude,
+                    poi.Longitude,
+                    Microsoft.Maui.Devices.Sensors.DistanceUnits.Kilometers) * 1000d;
+
+                if (dist <= ApproachRadiusMeters && dist < nearestPoiDistance)
                 {
-                    Poi = poi,
-                    TriggerRadiusMeters = Math.Max(1, poi.Radius ?? 30),
-                    DistanceMeters = Location.CalculateDistance(
-                        currentLocation.Latitude,
-                        currentLocation.Longitude,
-                        poi.Latitude,
-                        poi.Longitude,
-                        Microsoft.Maui.Devices.Sensors.DistanceUnits.Kilometers) * 1000d
-                })
-                .Where(x => x.DistanceMeters <= ApproachRadiusMeters)
-                .OrderBy(x => x.DistanceMeters)
-                .FirstOrDefault();
+                    nearestPoiDistance = dist;
+                    nearestPoiModel = poi;
+                    nearestPoiTriggerRadius = Math.Max(1, poi.Radius ?? 30);
+                }
+            }
 
             string debugNewText = "";
 
-            if (nearestPoi == null)
+            if (nearestPoiModel == null)
             {
                 debugNewText = "Không có điểm nào < 80m";
                 await MainThread.InvokeOnMainThreadAsync(() =>
@@ -833,9 +874,9 @@ namespace ThuyetMinhTuDong
                 return;
             }
 
-            debugNewText = $"Gần: {nearestPoi.Poi.Name} ({nearestPoi.DistanceMeters:N0}m / {nearestPoi.TriggerRadiusMeters}m)";
+            debugNewText = $"Gần: {nearestPoiModel.Name} ({nearestPoiDistance:N0}m / {nearestPoiTriggerRadius}m)";
 
-            if (nearestPoi.DistanceMeters > nearestPoi.TriggerRadiusMeters)
+            if (nearestPoiDistance > nearestPoiTriggerRadius)
             {
                 debugNewText += " - Đã tiếp cận (Chưa phát TTS)";
 
@@ -846,15 +887,15 @@ namespace ThuyetMinhTuDong
                 });
 
                 // Đặt lại cờ để khi bước vào vùng Trigger sẽ phát lại TTS
-                if (_lastAutoSpokenPoiId == nearestPoi.Poi.Id)
+                if (_lastAutoSpokenPoiId == nearestPoiModel.Id)
                 {
                     _lastAutoSpokenPoiId = null;
                 }
 
-                if (_lastApproachPoiId != nearestPoi.Poi.Id)
+                if (_lastApproachPoiId != nearestPoiModel.Id)
                 {
-                    _lastApproachPoiId = nearestPoi.Poi.Id;
-                    await _viewModel.LoadImagesForPoiAsync(nearestPoi.Poi.Id, nearestPoi.Poi.Name);
+                    _lastApproachPoiId = nearestPoiModel.Id;
+                    await _viewModel.LoadImagesForPoiAsync(nearestPoiModel.Id, nearestPoiModel.Name);
                 }
                 return;
             }
@@ -867,21 +908,21 @@ namespace ThuyetMinhTuDong
                 if (debugLabel != null) debugLabel.Text = debugNewText;
             });
 
-            if (_lastAutoSpokenPoiId == nearestPoi.Poi.Id)
+            if (_lastAutoSpokenPoiId == nearestPoiModel.Id)
                 return;
 
-            _lastApproachPoiId = nearestPoi.Poi.Id;
-            _lastAutoSpokenPoiId = nearestPoi.Poi.Id;
+            _lastApproachPoiId = nearestPoiModel.Id;
+            _lastAutoSpokenPoiId = nearestPoiModel.Id;
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                UpdateTab1Content("Tự động gần bạn", nearestPoi.Poi.Name, nearestPoi.Poi.Description);
+                UpdateTab1Content("Tự động gần bạn", nearestPoiModel.Name, nearestPoiModel.Description, nearestPoiModel.MapLink);
                 UpdateTabVisuals(1);
                 ExpandDrawerIfNeeded();
             });
 
-            await _viewModel.LoadImagesForPoiAsync(nearestPoi.Poi.Id, nearestPoi.Poi.Name);
-            await _viewModel.AutoSpeakAsync(true, nearestPoi.Poi.Description);
+            await _viewModel.LoadImagesForPoiAsync(nearestPoiModel.Id, nearestPoiModel.Name);
+            await _viewModel.AutoSpeakAsync(true, nearestPoiModel.Description);
         }
 
         private void CloseImagePreview()
