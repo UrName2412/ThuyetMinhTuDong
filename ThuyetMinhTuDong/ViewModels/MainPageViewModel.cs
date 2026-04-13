@@ -191,13 +191,23 @@ namespace ThuyetMinhTuDong.ViewModels
                 await _poiRepository.EnsureDefaultPOIsAsync(userLocation);
             }
 
-            var pois = await _poiRepository.GetNearbyActivePOIsAsync(userLocation, radiusKm: 2, forceRefresh: true);
+            var pois = await _poiRepository.GetAllActivePOIsAsync(forceRefresh: true);
+
+            // Sắp xếp địa điểm theo khoảng cách từ người dùng để danh sách vẫn dễ hiểu
+            if (userLocation != null)
+            {
+                pois = pois.OrderBy(poi => Location.CalculateDistance(
+                    userLocation.Latitude, userLocation.Longitude,
+                    poi.Latitude, poi.Longitude,
+                    Microsoft.Maui.Devices.Sensors.DistanceUnits.Kilometers)).ToList();
+            }
+
             foreach (var poi in pois)
             {
                 NearbyPois.Add(poi);
             }
 
-            NearbyStatusText = "Không có địa điểm nào trong bán kính 2 km.";
+            NearbyStatusText = "Không có địa điểm nào.";
             IsNearbyStatusVisible = NearbyPois.Count == 0;
         }
 
