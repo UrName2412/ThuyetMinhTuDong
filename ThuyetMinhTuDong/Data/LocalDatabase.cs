@@ -21,6 +21,22 @@ namespace ThuyetMinhTuDong.Data
 
             _database = new SQLiteAsyncConnection(_dbPath);
             await _database.CreateTableAsync<PointOfInterest>();
+            
+            // Đảm bảo cột MapLink được tạo (trong trường hợp SQLiteNet không tự update schema cũ)
+            try
+            {
+                await _database.ExecuteAsync("ALTER TABLE PointOfInterest ADD COLUMN MapLink TEXT");
+                System.Diagnostics.Debug.WriteLine("Migration: Đã thêm cột MapLink.");
+            }
+            catch (SQLite.SQLiteException ex) when (ex.Message.Contains("duplicate column name"))
+            {
+                // Bỏ qua nếu cột đã tồn tại
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Migration error: {ex.Message}");
+            }
+
             await _database.CreateTableAsync<TranslationCache>();
             await _database.CreateTableAsync<SyncState>();
         }

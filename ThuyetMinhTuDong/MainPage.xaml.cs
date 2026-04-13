@@ -43,6 +43,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Nhận tham số ngôn ngữ từ query và áp dụng khi đủ dữ liệu.
         private void TryHandleLanguageSelection()
         {
             if (!string.IsNullOrEmpty(_selectedLanguageCodeParam) && !string.IsNullOrEmpty(_selectedLanguageDisplayParam))
@@ -56,6 +57,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Khởi tạo trang chính và đăng ký các event UI/ViewModel.
         public MainPage(MainPageViewModel viewModel)
         {
             InitializeComponent();
@@ -65,6 +67,7 @@ namespace ThuyetMinhTuDong
             WireImagePreviewEvents();
         }
 
+        // Gắn sự kiện cho các thành phần giao diện như GPS và preview ảnh.
         private void WireImagePreviewEvents()
         {
             var closeButton = this.FindByName<Button>("CloseImagePreviewButton");
@@ -88,6 +91,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Lắng nghe event từ ViewModel để cập nhật trạng thái UI.
         private void SubscribeToViewModelEvents()
         {
             _viewModel.PlayStarted += (s, e) =>
@@ -131,6 +135,7 @@ namespace ThuyetMinhTuDong
             };
         }
 
+        // Xử lý khi trang xuất hiện: khởi tạo dữ liệu và xin quyền vị trí.
         protected override void OnAppearing()
         {
             base.OnAppearing();
@@ -172,6 +177,7 @@ namespace ThuyetMinhTuDong
             });
         }
 
+        // Xử lý khi trang ẩn: dừng GPSRealtime và tắt hiển thị vị trí người dùng.
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
@@ -183,6 +189,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Kiểm tra quyền vị trí, lấy vị trí hiện tại và nạp POI lên bản đồ.
         private async Task CheckAndRequestLocationPermission()
         {
             try
@@ -220,6 +227,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Bật hoặc tắt cơ chế theo dõi GPS realtime khi người dùng bấm nút.
         private async void OnGpsToggleClicked(object sender, EventArgs e)
         {
             if (_isGpsRealtimeEnabled)
@@ -238,6 +246,7 @@ namespace ThuyetMinhTuDong
             StartRealtimeGpsTracking();
         }
 
+        // Khởi động vòng lặp nền đọc vị trí định kỳ để cập nhật map và auto TTS.
         private void StartRealtimeGpsTracking()
         {
             StopRealtimeGpsTracking();
@@ -302,6 +311,7 @@ namespace ThuyetMinhTuDong
             }, token);
         }
 
+        // Dừng vòng lặp GPSRealtime và reset trạng thái liên quan.
         private void StopRealtimeGpsTracking()
         {
             _gpsTrackingCts?.Cancel();
@@ -314,6 +324,7 @@ namespace ThuyetMinhTuDong
             UpdateGpsToggleButton();
         }
 
+        // Cập nhật trạng thái hiển thị của nút GPS ON/OFF.
         private void UpdateGpsToggleButton()
         {
             var gpsToggleButton = this.FindByName<Button>("GpsToggleButton");
@@ -323,6 +334,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Cập nhật thẻ tọa độ hiện tại của người dùng trên UI.
         private void UpdateCoordinateCard(Location location)
         {
             var coordinatesLabel = this.FindByName<Label>("UserCoordinatesLabel");
@@ -332,6 +344,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Nạp POI gần vị trí hiện tại và render pin/vòng trigger lên bản đồ.
         private async Task AddPOIsToMapAsync(Microsoft.Maui.Controls.Maps.Map map, Location userLocation, bool syncApi = true)
         {
             map.Pins.Clear();
@@ -402,6 +415,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Tạo item giao diện cho một POI và thêm vào danh sách gần bạn.
         private async Task CreateAndAddNearbyPlaceItemAsync(VerticalStackLayout nearbyList, PointOfInterest poi)
         {
             var itemLayout = new Border
@@ -474,6 +488,7 @@ namespace ThuyetMinhTuDong
             nearbyList.Children.Add(itemLayout);
         }
 
+        // Mở rộng panel thông tin bằng thao tác vuốt lên.
         private async void OnSwipeUp(object sender, SwipedEventArgs e)
         {
             if (isExpanded) return;
@@ -498,11 +513,12 @@ namespace ThuyetMinhTuDong
 
                 if (coordBorder != null)
                 {
-                    await coordBorder.TranslateTo(0, -320, 300, Easing.CubicOut);
+                    _ = coordBorder.TranslateTo(0, -320, 300, Easing.CubicOut);
                 }
             }
         }
 
+        // Thu gọn panel thông tin bằng thao tác vuốt xuống.
         private async void OnSwipeDown(object sender, SwipedEventArgs e)
         {
             if (!isExpanded) return;
@@ -525,21 +541,24 @@ namespace ThuyetMinhTuDong
 
                 if (coordBorder != null)
                 {
-                    await coordBorder.TranslateTo(0, 0, 300, Easing.CubicIn);
+                    _ = coordBorder.TranslateTo(0, 0, 300, Easing.CubicIn);
                 }
             }
         }
 
+        // Chọn tab 1 trong phần nội dung.
         private void OnTab1Tapped(object sender, EventArgs e)
         {
             UpdateTabVisuals(1);
         }
 
+        // Chọn tab 2 trong phần nội dung.
         private void OnTab2Tapped(object sender, EventArgs e)
         {
             UpdateTabVisuals(2);
         }
 
+        // Cập nhật trạng thái màu sắc và nội dung theo tab đang chọn.
         private void UpdateTabVisuals(int selectedTabIndex)
         {
             var lblTab1 = this.FindByName<Label>("LblTab1");
@@ -572,6 +591,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Áp dụng ngôn ngữ được chọn và cập nhật text hiển thị của nút ngôn ngữ.
         private async Task HandleLanguageSelection(string languageCode, string displayName)
         {
             try
@@ -590,6 +610,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Mở màn hình chọn ngôn ngữ và dừng TTS nếu đang phát.
         private async void OnAddLanguageClicked(object sender, EventArgs e)
         {
             try
@@ -614,6 +635,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Mở danh sách giọng đọc theo ngôn ngữ hiện tại để người dùng chọn.
         private async void OnSettingsClicked(object sender, EventArgs e)
         {
             try
@@ -654,6 +676,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Xử lý nút Play/Pause để phát hoặc dừng thuyết minh thủ công.
         private async void OnPlayPauseTapped(object sender, EventArgs e)
         {
             var ttsSwitch = this.FindByName<Switch>("TtsSwitch");
@@ -675,6 +698,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Cập nhật dữ liệu hiển thị chi tiết POI ở tab thông tin.
         private void UpdateTab1Content(string source, string name, string description, string mapLink)
         {
             _viewModel.CurrentDescriptionVietnamese = description;
@@ -686,11 +710,33 @@ namespace ThuyetMinhTuDong
                 _viewModel.StopSpeaking();
             }
 
+            var openMapBtn = this.FindByName<Button>("OpenMapButton");
+            if (openMapBtn != null)
+            {
+                openMapBtn.IsVisible = !string.IsNullOrWhiteSpace(mapLink);
+            }
+
             var tab1Content = this.FindByName<Border>("Tab1Content");
             if (tab1Content == null)
                 return;
 
-            var statusHStack = tab1Content.Content as VerticalStackLayout;
+            VerticalStackLayout statusHStack = null;
+            if (tab1Content.Content is ScrollView sv && sv.Content is VerticalStackLayout svVsl)
+            {
+                statusHStack = svVsl;
+                
+                // Tiện cập nhật nút ở đây vì nếu nó nằm trong cùng cây View
+                var btnInScroll = svVsl.FindByName<Button>("OpenMapButton");
+                if (btnInScroll != null)
+                {
+                    btnInScroll.IsVisible = !string.IsNullOrWhiteSpace(mapLink);
+                }
+            }
+            else if (tab1Content.Content is VerticalStackLayout vsl)
+            {
+                statusHStack = vsl;
+            }
+
             if (statusHStack != null && statusHStack.Children.Count > 0)
             {
                 // Cập nhật nhãn trạng thái
@@ -714,7 +760,7 @@ namespace ThuyetMinhTuDong
                 {
                     descriptionLabel.Text = description;
                 }
-                else if (statusHStack.Children.Count > 2 && statusHStack.Children[2] is ScrollView sv && sv.Content is Label svDescLabel)
+                else if (statusHStack.Children.Count > 2 && statusHStack.Children[2] is ScrollView svDesc && svDesc.Content is Label svDescLabel)
                 {
                     svDescLabel.Text = description;
                 }
@@ -725,6 +771,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Mở rộng drawer nếu hiện tại đang thu gọn.
         private void ExpandDrawerIfNeeded()
         {
             if (!isExpanded)
@@ -742,12 +789,20 @@ namespace ThuyetMinhTuDong
                     parentAnimation.Add(0, 1, heightAnimation);
                     parentAnimation.Add(0.5, 1, fadeAnimation);
                     parentAnimation.Commit(this, "ExpandDrawer", 16, 300);
+
+                    var coordBorder = this.FindByName<Border>("CoordBorder");
+                    if (coordBorder != null)
+                    {
+                        _ = coordBorder.TranslateTo(0, -320, 300, Easing.CubicOut);
+                    }
                 }
             }
         }
 
+        // Xử lý khi người dùng chọn một POI từ map hoặc danh sách.
         private async void OnPlaceSelected(PointOfInterest poi, string source)
         {
+            System.Diagnostics.Debug.WriteLine($"[UI] Selected POI: {poi.Name}, MapLink: '{poi.MapLink}'");
             UpdateTab1Content(source, poi.Name, poi.Description, poi.MapLink);
             UpdateTabVisuals(1);
             ExpandDrawerIfNeeded();
@@ -764,6 +819,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Hiển thị overlay preview khi người dùng chạm vào ảnh POI.
         private void OnPoiImageTapped(object sender, TappedEventArgs e)
         {
             if (sender is not BindableObject bindable || bindable.BindingContext is not ThuyetMinhTuDong.Models.Image tappedImage)
@@ -789,16 +845,19 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Đóng preview ảnh khi bấm nút đóng.
         private void OnCloseImagePreviewClicked(object sender, EventArgs e)
         {
             CloseImagePreview();
         }
 
+        // Đóng preview ảnh khi chạm vùng nền tối.
         private void OnImagePreviewBackgroundTapped(object sender, TappedEventArgs e)
         {
             CloseImagePreview();
         }
 
+        // Mở liên kết bản đồ của POI bằng ứng dụng bản đồ mặc định.
         private async void OnOpenMapClicked(object sender, EventArgs e)
         {
             try
@@ -807,13 +866,13 @@ namespace ThuyetMinhTuDong
                 {
                     await Launcher.Default.OpenAsync(new Uri(_viewModel.CurrentMapLink));
                 }
-            }
-            catch (Exception ex)
+            }   catch (Exception ex)
             {
                 await DisplayAlert("Lỗi", $"Không thể mở bản đồ: {ex.Message}", "OK");
             }
         }
 
+        // Tự động xác định POI gần nhất để cập nhật UI và phát TTS theo vùng trigger.
         private async Task HandleAutoPoiAnnouncementAsync(Location currentLocation)
         {
             bool isTtsToggled = false;
@@ -925,6 +984,7 @@ namespace ThuyetMinhTuDong
             await _viewModel.AutoSpeakAsync(true, nearestPoiModel.Description);
         }
 
+        // Ẩn overlay preview ảnh.
         private void CloseImagePreview()
         {
             var overlay = this.FindByName<Microsoft.Maui.Controls.Grid>("ImagePreviewOverlay");

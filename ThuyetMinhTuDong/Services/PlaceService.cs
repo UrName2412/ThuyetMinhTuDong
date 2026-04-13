@@ -273,68 +273,22 @@ namespace ThuyetMinhTuDong.Services
                 }
                 remotePois = validRemotePois;
 
-                // Get all local POIs (including soft-deleted)
-                var localPois = await _database.GetPOIsAsync();
-                System.Diagnostics.Debug.WriteLine($"[Sync] Local POIs (all): {localPois.Count}");
+                // Đồng bộ 100%: Xóa sạch local copy cũ và lưu đè tất cả các POI từ remote API xuống
+                await _database.DeleteAllPOIsAsync();
+                System.Diagnostics.Debug.WriteLine("[Sync] Đã xóa toàn bộ cache POI local cũ để nhận dữ liệu mới");
 
-                // ✅ Detect and soft delete POIs that exist locally but not on server
-                // Because supabase has is_deleted flag, we should only delete if not in remote list AT ALL
-                var deletedPois = localPois
-                    .Where(local => !remotePois.Any(remote => remote.Id == local.Id) && !local.IsDeleted)
-                    .ToList();
-
-                System.Diagnostics.Debug.WriteLine($"[Sync] Found {deletedPois.Count} POIs to soft delete");
-                foreach (var poi in deletedPois)
+                var activeRemotePois = remotePois.Where(x => !x.IsDeleted).ToList();
+                if (activeRemotePois.Any())
                 {
-                    await _database.SoftDeletePOIAsync(poi.Id);
-                    string poiName = string.IsNullOrWhiteSpace(poi.Name) ? $"(ID: {poi.Id})" : poi.Name;
-                    System.Diagnostics.Debug.WriteLine($"[Sync] Soft deleted POI: {poiName}");
-                }
-
-                var poisToUpdate = new List<PointOfInterest>();
-
-                // ✅ Handle is_deleted flag from server (if present)
-                foreach (var remotePoi in remotePois)
-                {
-                    var localPoi = localPois.FirstOrDefault(x => x.Id == remotePoi.Id);
-
-                    if (remotePoi.IsDeleted)
-                    {
-                        if (localPoi == null)
-                        {
-                           poisToUpdate.Add(remotePoi);
-                        }
-                        else if (!localPoi.IsDeleted)
-                        {
-                            // Server says deleted, soft delete local copy
-                            await _database.SoftDeletePOIAsync(remotePoi.Id);
-                            System.Diagnostics.Debug.WriteLine($"[Sync] ✅ Server deleted POI #{remotePoi.Id}: {remotePoi.Name}");
-                        }
-                    }
-                    else if (!remotePoi.IsDeleted && localPoi?.IsDeleted == true)
-                    {
-                        // Server says not deleted, restore local copy
-                        await _database.RestorePOIAsync(remotePoi.Id);
-                        poisToUpdate.Add(remotePoi);
-                        System.Diagnostics.Debug.WriteLine($"[Sync] 🔄 POI #{remotePoi.Id} restored and queued for update: {remotePoi.Name}");
-                    }
-                    else if (!remotePoi.IsDeleted)
-                    {
-                        poisToUpdate.Add(remotePoi);
-                    }
-                }
-
-                if (poisToUpdate.Any())
-                {
-                    await _database.SavePOIsBatchAsync(poisToUpdate);
-                    System.Diagnostics.Debug.WriteLine($"[Sync] 💾 Batch Saved/Updated {poisToUpdate.Count} POIs");
+                    await _database.SavePOIsBatchAsync(activeRemotePois);
+                    System.Diagnostics.Debug.WriteLine($"[Sync] 💾 Đã lưu thành công {activeRemotePois.Count} POIs đang hoạt động từ Remote xuống Local.");
                 }
 
                 // Update sync time
                 await _database.UpdateSyncTimeAsync("poi_last_sync", DateTime.Now);
-                System.Diagnostics.Debug.WriteLine($"[Sync] Complete. Total active: {remotePois.Count}");
+                System.Diagnostics.Debug.WriteLine($"[Sync] Xong! Số lượng POI active thực tế: {activeRemotePois.Count}");
 
-                // Invalidate cache
+                // Invalidate memory cache
                 _cachedPois = null;
 
                 return true;
