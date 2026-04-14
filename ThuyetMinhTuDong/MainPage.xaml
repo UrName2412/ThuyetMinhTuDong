@@ -9,11 +9,40 @@
         <!-- Bản đồ (Phần trên) -->
         <maps:Map x:Name="MyMap" IsShowingUser="False" MapType="Street" VerticalOptions="Fill" HorizontalOptions="Fill" />
 
+        <!-- Nút Thuyết minh tự động ở góc trên trái -->
+        <Border x:Name="TtsBorder"
+                HorizontalOptions="Start"
+                VerticalOptions="Start"
+                Margin="15,10,0,0"
+                Padding="10,0"
+                BackgroundColor="#CC1A1111"
+                Stroke="#B71C1C"
+                HeightRequest="40"
+                ZIndex="30">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="16"/>
+            </Border.StrokeShape>
+            <HorizontalStackLayout Spacing="2" VerticalOptions="Center">
+                <Label Text="Thuyết minh tự động"
+                       TextColor="White"
+                       FontSize="11"
+                       FontAttributes="Bold"
+                       VerticalOptions="Center"/>
+                <Switch x:Name="TtsSwitch"
+                        IsToggled="True"
+                        OnColor="#B71C1C"
+                        ThumbColor="White"
+                        Scale="0.7"
+                        Margin="-5,0,-5,0"
+                        VerticalOptions="Center"/>
+            </HorizontalStackLayout>
+        </Border>
+
         <!-- Thẻ tọa độ người dùng -->
         <Border x:Name="CoordBorder"
                 HorizontalOptions="Start"
                 VerticalOptions="Start"
-                Margin="15,50,15,0"
+                Margin="15,60,15,0"
                 Padding="10,8"
                 BackgroundColor="#CC1A1111"
                 Stroke="#B71C1C"
@@ -50,36 +79,11 @@
             <!-- Thanh trượt -->
             <BoxView HeightRequest="4" WidthRequest="40" Color="#B71C1C" CornerRadius="2" HorizontalOptions="Center" Margin="0,0,0,5" />
 
-            <!-- Thanh công cụ: Ngôn ngữ & GPS & TTS -->
+            <!-- Thanh công cụ: Ngôn ngữ & GPS & QR -->
             <Grid ColumnDefinitions="*, Auto, Auto" ColumnSpacing="6" Margin="0,0,0,10" VerticalOptions="Center">
                 <Button Grid.Column="0" x:Name="LanguageButton" Text="Tiếng Việt ▾" TextColor="White" FontAttributes="Bold" FontSize="13" BackgroundColor="Transparent" Padding="12,8" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" HorizontalOptions="Start" VerticalOptions="Center" Clicked="OnAddLanguageClicked" />
-
-                <Border Grid.Column="1" x:Name="TtsBorder"
-                        Padding="10,0"
-                        BackgroundColor="Transparent"
-                        Stroke="#B71C1C"
-                        VerticalOptions="Center"
-                        HeightRequest="40">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="16"/>
-                    </Border.StrokeShape>
-                    <HorizontalStackLayout Spacing="2" VerticalOptions="Center">
-                        <Label Text="Thuyết minh tự động"
-                               TextColor="White"
-                               FontSize="11"
-                               FontAttributes="Bold"
-                               VerticalOptions="Center"/>
-                        <Switch x:Name="TtsSwitch"
-                                IsToggled="True"
-                                OnColor="#B71C1C"
-                                ThumbColor="White"
-                                Scale="0.7"
-                                Margin="-5,0,-5,0"
-                                VerticalOptions="Center"/>
-                    </HorizontalStackLayout>
-                </Border>
-
-                <Button Grid.Column="2" x:Name="GpsToggleButton" Text="GPS: OFF" TextColor="#D4AF37" FontSize="13" FontAttributes="Bold" BackgroundColor="Transparent" Padding="10,8" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" VerticalOptions="Center" />
+                <Button Grid.Column="1" x:Name="GpsToggleButton" Text="GPS: OFF" TextColor="#D4AF37" FontSize="13" FontAttributes="Bold" BackgroundColor="Transparent" Padding="10,8" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" VerticalOptions="Center" />
+                <Button Grid.Column="2" x:Name="QrScanButton" Text="QR" TextColor="#D4AF37" FontSize="13" FontAttributes="Bold" BackgroundColor="Transparent" Padding="10,8" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" VerticalOptions="Center" />
             </Grid>
 
             <VerticalStackLayout x:Name="ExpandableContent" Spacing="25" HeightRequest="0" Opacity="0" IsVisible="True">

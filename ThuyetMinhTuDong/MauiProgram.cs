@@ -4,6 +4,7 @@ using CommunityToolkit.Maui;
 using ThuyetMinhTuDong.Repositories;
 using ThuyetMinhTuDong.Services;
 using ThuyetMinhTuDong.ViewModels;
+using ZXing.Net.Maui.Controls;
 
 namespace ThuyetMinhTuDong
 {
@@ -16,6 +17,7 @@ namespace ThuyetMinhTuDong
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
                 .UseMauiMaps()
+                .UseBarcodeReader()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -40,6 +42,7 @@ namespace ThuyetMinhTuDong
             // Register ViewModels and Pages
             builder.Services.AddTransient<MainPageViewModel>();
             builder.Services.AddTransient<MainPage>();
+            builder.Services.AddTransient<QrScannerPage>();
 
             return builder.Build();
         }
