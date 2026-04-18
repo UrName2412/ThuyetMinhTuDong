@@ -6,6 +6,7 @@
         {
             InitializeComponent();
             Routing.RegisterRoute("languagesearch", typeof(LanguageSearchPage));
+            Routing.RegisterRoute("qrscanner", typeof(QrScannerPage));
         }
     }
 }

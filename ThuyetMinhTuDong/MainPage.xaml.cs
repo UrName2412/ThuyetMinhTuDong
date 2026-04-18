@@ -89,6 +89,12 @@ namespace ThuyetMinhTuDong
             {
                 gpsButton.Clicked += OnGpsToggleClicked;
             }
+
+            var qrButton = this.FindByName<Button>("QrScanButton");
+            if (qrButton != null)
+            {
+                qrButton.Clicked += OnQrScanClicked;
+            }
         }
 
         // Lắng nghe event từ ViewModel để cập nhật trạng thái UI.
@@ -607,6 +613,19 @@ namespace ThuyetMinhTuDong
             catch (Exception ex)
             {
                 await DisplayAlert("Lỗi", $"Không thể cập nhật ngôn ngữ: {ex.Message}", "OK");
+            }
+        }
+
+        // Mở màn hình quét QR.
+        private async void OnQrScanClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                await Shell.Current.GoToAsync("qrscanner");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Lỗi", $"Không thể mở màn quét QR: {ex.Message}", "OK");
             }
         }
 
