@@ -44,7 +44,7 @@ namespace ThuyetMinhTuDong
             // Register ViewModels and Pages
             builder.Services.AddTransient<MainPageViewModel>();
             builder.Services.AddTransient<MainPage>();
-            builder.Services.AddTransient<ScanQrPage>();
+            builder.Services.AddTransient<QrScannerPage>();
 
             return builder.Build();
         }
