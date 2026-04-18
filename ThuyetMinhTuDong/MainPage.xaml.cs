@@ -3,6 +3,8 @@ using ThuyetMinhTuDong.ViewModels;
 using Microsoft.Maui.Controls.Compatibility;
 using ThuyetMinhTuDong.Services;
 
+#pragma warning disable CS0618
+
 namespace ThuyetMinhTuDong
 {
     [QueryProperty(nameof(SelectedLanguageCode), "selectedLanguageCode")]
@@ -18,11 +20,11 @@ namespace ThuyetMinhTuDong
 
         private readonly MainPageViewModel _viewModel;
 
-        private string _selectedLanguageCodeParam;
-        private string _selectedLanguageDisplayParam;
-        private string _uiLanguageCodeParam;
-        private string _uiLanguageDisplayParam;
-        private string _qrPoiIdParam;
+        private string? _selectedLanguageCodeParam;
+        private string? _selectedLanguageDisplayParam;
+        private string? _uiLanguageCodeParam;
+        private string? _uiLanguageDisplayParam;
+        private string? _qrPoiIdParam;
         private bool isExpanded = false;
         private bool _isGpsRealtimeEnabled;
         private CancellationTokenSource? _gpsTrackingCts;
@@ -30,7 +32,7 @@ namespace ThuyetMinhTuDong
         private int? _lastApproachPoiId;
         private Location? _lastLoadedLocation;
 
-        public string UiLanguageCode
+        public string? UiLanguageCode
         {
             get => _uiLanguageCodeParam;
             set
@@ -40,7 +42,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
-        public string UiLanguageDisplay
+        public string? UiLanguageDisplay
         {
             get => _uiLanguageDisplayParam;
             set
@@ -50,7 +52,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
-        public string SelectedLanguageCode
+        public string? SelectedLanguageCode
         {
             get => _selectedLanguageCodeParam;
             set
@@ -60,7 +62,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
-        public string SelectedLanguageDisplay
+        public string? SelectedLanguageDisplay
         {
             get => _selectedLanguageDisplayParam;
             set
@@ -70,7 +72,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
-        public string QrPoiId
+        public string? QrPoiId
         {
             get => _qrPoiIdParam;
             set
@@ -113,7 +115,7 @@ namespace ThuyetMinhTuDong
             {
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await HandleLanguageSelection(_selectedLanguageCodeParam, _selectedLanguageDisplayParam);
+                    await HandleLanguageSelection(_selectedLanguageCodeParam!, _selectedLanguageDisplayParam!);
                     _selectedLanguageCodeParam = null;
                     _selectedLanguageDisplayParam = null;
                 });
@@ -126,7 +128,7 @@ namespace ThuyetMinhTuDong
             {
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    HandleUiLanguageSelection(_uiLanguageCodeParam, _uiLanguageDisplayParam);
+                    HandleUiLanguageSelection(_uiLanguageCodeParam!, _uiLanguageDisplayParam!);
                     _uiLanguageCodeParam = null;
                     _uiLanguageDisplayParam = null;
                 });
@@ -293,7 +295,10 @@ namespace ThuyetMinhTuDong
                             map.IsShowingUser = true;
 
                             var mapSpan = _viewModel.CreateMapSpan(location);
-                            map.MoveToRegion(mapSpan);
+                            if (mapSpan != null)
+                            {
+                                map.MoveToRegion(mapSpan);
+                            }
 
                             _lastLoadedLocation = location;
                             await AddPOIsToMapAsync(map, location, true);
@@ -312,7 +317,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Bật hoặc tắt cơ chế theo dõi GPS realtime khi người dùng bấm nút.
-        private async void OnGpsToggleClicked(object sender, EventArgs e)
+        private async void OnGpsToggleClicked(object? sender, EventArgs e)
         {
             if (_isGpsRealtimeEnabled)
             {
@@ -552,13 +557,13 @@ namespace ThuyetMinhTuDong
             };
 
             string translatedName = poi.Name;
-            string ttsLangCode = _viewModel.SelectedLanguageCode;
-            if (!string.IsNullOrEmpty(ttsLangCode) && !ttsLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+            string uiLangCode = Preferences.Default.Get("UiLanguageCode", "vi");
+            if (!string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
             {
                 var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ITranslateService>();
                 if (translateService != null)
                 {
-                    translatedName = await translateService.TranslateTextAsync(poi.Name, ttsLangCode);
+                    translatedName = await translateService.TranslateTextAsync(poi.Name, uiLangCode);
                 }
             }
 
@@ -584,7 +589,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Mở rộng panel thông tin bằng thao tác vuốt lên.
-        private async void OnSwipeUp(object sender, SwipedEventArgs e)
+        private async void OnSwipeUp(object? sender, SwipedEventArgs e)
         {
             if (isExpanded) return;
             isExpanded = true;
@@ -614,7 +619,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Thu gọn panel thông tin bằng thao tác vuốt xuống.
-        private async void OnSwipeDown(object sender, SwipedEventArgs e)
+        private async void OnSwipeDown(object? sender, SwipedEventArgs e)
         {
             if (!isExpanded) return;
             isExpanded = false;
@@ -642,13 +647,13 @@ namespace ThuyetMinhTuDong
         }
 
         // Chọn tab 1 trong phần nội dung.
-        private void OnTab1Tapped(object sender, EventArgs e)
+        private void OnTab1Tapped(object? sender, TappedEventArgs e)
         {
             UpdateTabVisuals(1);
         }
 
         // Chọn tab 2 trong phần nội dung.
-        private void OnTab2Tapped(object sender, EventArgs e)
+        private void OnTab2Tapped(object? sender, TappedEventArgs e)
         {
             UpdateTabVisuals(2);
         }
@@ -701,7 +706,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Mở màn hình quét QR.
-        private async void OnQrScanClicked(object sender, EventArgs e)
+        private async void OnQrScanClicked(object? sender, EventArgs e)
         {
             try
             {
@@ -714,7 +719,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Ẩn/hiện menu con chọn ngôn ngữ
-        private void OnLanguageSettingClicked(object sender, EventArgs e)
+        private void OnLanguageSettingClicked(object? sender, EventArgs e)
         {
             var overlay = this.FindByName<Microsoft.Maui.Controls.Grid>("LanguageMenuOverlay");
             if (overlay != null)
@@ -723,7 +728,7 @@ namespace ThuyetMinhTuDong
             }
         }
 
-        private void OnLanguageMenuBackdropTapped(object sender, TappedEventArgs e)
+        private void OnLanguageMenuBackdropTapped(object? sender, TappedEventArgs e)
         {
             var overlay = this.FindByName<Microsoft.Maui.Controls.Grid>("LanguageMenuOverlay");
             if (overlay != null)
@@ -733,7 +738,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Chọn ngôn ngữ cho giao diện
-        private async void OnUiLanguageClicked(object sender, EventArgs e)
+        private async void OnUiLanguageClicked(object? sender, EventArgs e)
         {
             var overlay = this.FindByName<Microsoft.Maui.Controls.Grid>("LanguageMenuOverlay");
             if (overlay != null) overlay.IsVisible = false;
@@ -844,7 +849,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Mở màn hình chọn ngôn ngữ và dừng TTS nếu đang phát.
-        private async void OnAddLanguageClicked(object sender, EventArgs e)
+        private async void OnAddLanguageClicked(object? sender, EventArgs e)
         {
             try
             {
@@ -872,7 +877,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Mở danh sách giọng đọc theo ngôn ngữ hiện tại để người dùng chọn.
-        private async void OnSettingsClicked(object sender, EventArgs e)
+        private async void OnSettingsClicked(object? sender, EventArgs e)
         {
             try
             {
@@ -913,7 +918,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Xử lý nút Play/Pause để phát hoặc dừng thuyết minh thủ công.
-        private async void OnPlayPauseTapped(object sender, EventArgs e)
+        private async void OnPlayPauseTapped(object? sender, EventArgs e)
         {
             var ttsSwitch = this.FindByName<Switch>("TtsSwitch");
             if (ttsSwitch != null && !ttsSwitch.IsToggled)
@@ -1038,7 +1043,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Hiển thị overlay preview khi người dùng chạm vào ảnh POI.
-        private void OnPoiImageTapped(object sender, TappedEventArgs e)
+        private void OnPoiImageTapped(object? sender, TappedEventArgs e)
         {
             if (sender is not BindableObject bindable || bindable.BindingContext is not ThuyetMinhTuDong.Models.Image tappedImage)
                 return;
@@ -1064,19 +1069,19 @@ namespace ThuyetMinhTuDong
         }
 
         // Đóng preview ảnh khi bấm nút đóng.
-        private void OnCloseImagePreviewClicked(object sender, EventArgs e)
+        private void OnCloseImagePreviewClicked(object? sender, EventArgs e)
         {
             CloseImagePreview();
         }
 
         // Đóng preview ảnh khi chạm vùng nền tối.
-        private void OnImagePreviewBackgroundTapped(object sender, TappedEventArgs e)
+        private void OnImagePreviewBackgroundTapped(object? sender, TappedEventArgs e)
         {
             CloseImagePreview();
         }
 
         // Mở liên kết bản đồ của POI bằng ứng dụng bản đồ mặc định.
-        private async void OnOpenMapClicked(object sender, EventArgs e)
+        private async void OnOpenMapClicked(object? sender, EventArgs e)
         {
             try
             {
@@ -1117,7 +1122,7 @@ namespace ThuyetMinhTuDong
                 return;
             }
 
-            PointOfInterest nearestPoiModel = null;
+            PointOfInterest? nearestPoiModel = null;
             double nearestPoiDistance = double.MaxValue;
             double nearestPoiTriggerRadius = 30;
 
@@ -1238,3 +1243,5 @@ namespace ThuyetMinhTuDong
         }
     }
 }
+
+#pragma warning restore CS0618
