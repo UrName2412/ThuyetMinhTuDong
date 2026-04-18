@@ -32,14 +32,26 @@ namespace ThuyetMinhTuDong.Services
             await _syncLock.WaitAsync();
             try
             {
-                if (_socket?.State == WebSocketState.Open)
+                if (_socket != null && (_socket.State == WebSocketState.Open || _socket.State == WebSocketState.Connecting))
                     return;
+
+                if (_socket != null)
+                {
+                    try { _socket.Dispose(); } catch { }
+                    _socket = null;
+                }
 
                 _statusService.UpdateStatus("Đang kết nối...", "Orange");
                 _isChannelJoined = false;
                 _joinRef = null;
 
-                _cts?.Cancel();
+                if (_cts != null)
+                {
+                    try { _cts.Cancel(); } catch { }
+                    try { _cts.Dispose(); } catch { }
+                    _cts = null;
+                }
+
                 _cts = new CancellationTokenSource();
                 _socket = new ClientWebSocket();
                 _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
@@ -53,12 +65,20 @@ namespace ThuyetMinhTuDong.Services
                 await JoinChannelAsync(_cts.Token);
 
                 DebugLogService.Log("[ONLINE] Presence started, waiting for channel join reply.");
-
             }
             catch (Exception ex)
             {
                 _statusService.UpdateStatus($"Lỗi Khởi Động: {ex.Message}", "Red");
                 DebugLogService.Log($"[ONLINE] Start error: {ex.Message}");
+
+                if (_socket != null)
+                {
+                    try { _socket.Dispose(); } catch { }
+                    _socket = null;
+                }
+
+                // Chạy ScheduleReconnectAsync ngầm để không giữ Lock của StartAsync
+                _ = Task.Run(ScheduleReconnectAsync);
             }
             finally
             {
@@ -73,24 +93,29 @@ namespace ThuyetMinhTuDong.Services
             {
                 _isChannelJoined = false;
 
-                if (_socket == null)
-                    return;
-
-                if (_socket.State == WebSocketState.Open)
+                if (_socket != null)
                 {
-                    try
+                    if (_socket.State == WebSocketState.Open)
                     {
-                        await UntrackOnlineAsync(CancellationToken.None);
-                        await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "sleep", CancellationToken.None);
+                        try
+                        {
+                            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                            await UntrackOnlineAsync(timeoutCts.Token);
+                            await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "sleep", timeoutCts.Token);
+                        }
+                        catch { }
                     }
-                    catch
-                    {
-                    }
+
+                    try { _socket.Dispose(); } catch { }
+                    _socket = null;
                 }
 
-                _cts?.Cancel();
-                _socket.Dispose();
-                _socket = null;
+                if (_cts != null)
+                {
+                    try { _cts.Cancel(); } catch { }
+                    try { _cts.Dispose(); } catch { }
+                    _cts = null;
+                }
 
                 DebugLogService.Log("[ONLINE] Presence stopped.");
                 _statusService.UpdateStatus("Đã ngắt kết nối", "Gray");
@@ -199,7 +224,12 @@ namespace ThuyetMinhTuDong.Services
                 }
                 catch (Exception ex)
                 {
+                    if (ct.IsCancellationRequested)
+                        break;
+
                     DebugLogService.Log($"[ONLINE] Heartbeat error: {ex.Message}");
+                    _ = ScheduleReconnectAsync();
+                    break;
                 }
             }
         }
@@ -275,6 +305,9 @@ namespace ThuyetMinhTuDong.Services
                 }
                 catch (Exception ex)
                 {
+                    if (ct.IsCancellationRequested)
+                        break;
+
                     DebugLogService.Log($"[ONLINE] Receive error: {ex.Message}");
                     _statusService.UpdateStatus($"Lỗi Nhận: {ex.Message}", "Red");
                     _ = ScheduleReconnectAsync();
@@ -293,7 +326,6 @@ namespace ThuyetMinhTuDong.Services
             {
                 await StopAsync();
                 await Task.Delay(TimeSpan.FromSeconds(8));
-                await StartAsync();
             }
             catch (Exception ex)
             {
@@ -303,6 +335,8 @@ namespace ThuyetMinhTuDong.Services
             {
                 _isReconnecting = false;
             }
+
+            await StartAsync();
         }
 
         private async Task SendPhoenixFrameAsync(string topic, string eventName, object payload, string reference, CancellationToken ct, string? joinRef)

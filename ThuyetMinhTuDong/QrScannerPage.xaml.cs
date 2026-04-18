@@ -106,7 +106,7 @@ public class QrScannerPage : ContentPage
                     }
                     else
                     {
-                        await DisplayAlert("QR", scannedValue, "OK");
+                        await DisplayAlertAsync("QR", scannedValue, "OK");
                         await Shell.Current.GoToAsync("..");
                     }
                 }

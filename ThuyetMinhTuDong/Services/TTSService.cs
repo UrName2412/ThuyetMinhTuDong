@@ -8,24 +8,24 @@ namespace ThuyetMinhTuDong.Services
     /// </summary>
     public class TTSService
     {
-        private CancellationTokenSource _ttsCts;
-        private IEnumerable<Locale> _availableLocales;
-        private string _selectedLanguageCode;
-        private Locale _selectedLocale;
+        private CancellationTokenSource? _ttsCts;
+        private IEnumerable<Locale>? _availableLocales;
+        private string _selectedLanguageCode = "vi";
+        private Locale? _selectedLocale;
         private bool _isPlaying;
 
         private readonly ITranslateService _translateService;
 
-        public event EventHandler<LanguageChangedEventArgs> LanguageChanged;
-        public event EventHandler PlayStarted;
-        public event EventHandler PlayStopped;
-        public event EventHandler<string> TranslationStarted;
-        public event EventHandler TranslationFinished;
+        public event EventHandler<LanguageChangedEventArgs>? LanguageChanged;
+        public event EventHandler? PlayStarted;
+        public event EventHandler? PlayStopped;
+        public event EventHandler<string>? TranslationStarted;
+        public event EventHandler? TranslationFinished;
 
         public bool IsPlaying => _isPlaying;
         public string SelectedLanguageCode => _selectedLanguageCode;
-        public Locale SelectedLocale => _selectedLocale;
-        public IEnumerable<Locale> AvailableLocales => _availableLocales;
+        public Locale? SelectedLocale => _selectedLocale;
+        public IEnumerable<Locale> AvailableLocales => _availableLocales ?? Enumerable.Empty<Locale>();
 
         public TTSService(ITranslateService translateService)
         {
@@ -70,7 +70,7 @@ namespace ThuyetMinhTuDong.Services
                         x.Language.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
                         ?? _availableLocales.FirstOrDefault();
 
-                    _selectedLanguageCode = _selectedLocale?.Language;
+                    _selectedLanguageCode = _selectedLocale?.Language ?? _selectedLanguageCode;
                 }
             }
             catch (Exception ex)
@@ -163,7 +163,7 @@ namespace ThuyetMinhTuDong.Services
                     options.Locale = _selectedLocale;
                 }
 
-                string selectedLanguage = _selectedLanguageCode ?? _selectedLocale?.Language;
+                string? selectedLanguage = _selectedLanguageCode ?? _selectedLocale?.Language;
                 string textToSpeak = text;
 
                 if (!string.IsNullOrWhiteSpace(selectedLanguage) &&
@@ -211,7 +211,7 @@ namespace ThuyetMinhTuDong.Services
 
         public class LanguageChangedEventArgs : EventArgs
         {
-            public string LanguageCode { get; set; }
+            public string LanguageCode { get; set; } = string.Empty;
         }
     }
 }

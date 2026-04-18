@@ -169,7 +169,7 @@ namespace ThuyetMinhTuDong.ViewModels
         public Task<Location?> GetCurrentLocationAsync()
             => _locationService.GetCurrentLocationAsync();
 
-        public Microsoft.Maui.Maps.MapSpan? CreateMapSpan(Location location)
+        public Microsoft.Maui.Maps.MapSpan? CreateMapSpan(Location? location)
             => _locationService.CreateMapSpan(location);
 
         public async Task LoadNearbyPoisAsync(Location userLocation, bool syncApi = true)

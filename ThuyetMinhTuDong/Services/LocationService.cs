@@ -5,8 +5,8 @@ namespace ThuyetMinhTuDong.Services
     /// </summary>
     public class LocationService
     {
-        public event EventHandler<LocationObtainedEventArgs> LocationObtained;
-        public event EventHandler<PermissionDeniedEventArgs> PermissionDenied;
+        public event EventHandler<LocationObtainedEventArgs>? LocationObtained;
+        public event EventHandler<PermissionDeniedEventArgs>? PermissionDenied;
 
         /// <summary>
         /// Checks and requests location permission from the user.
@@ -43,12 +43,12 @@ namespace ThuyetMinhTuDong.Services
         /// Gets the user's current location with fallback to last known location.
         /// Uses Medium accuracy with 10-second timeout.
         /// </summary>
-        public async Task<Location> GetCurrentLocationAsync()
+        public async Task<Location?> GetCurrentLocationAsync()
         {
             try
             {
                 var location = await Geolocation.GetLocationAsync(new GeolocationRequest(
-                    GeolocationAccuracy.Medium, 
+                    GeolocationAccuracy.Medium,
                     TimeSpan.FromSeconds(10)))
                     ?? await Geolocation.GetLastKnownLocationAsync();
 
@@ -68,7 +68,7 @@ namespace ThuyetMinhTuDong.Services
         /// <summary>
         /// Creates a MapSpan centered at the given location with 1km radius.
         /// </summary>
-        public Microsoft.Maui.Maps.MapSpan CreateMapSpan(Location location)
+        public Microsoft.Maui.Maps.MapSpan? CreateMapSpan(Location? location)
         {
             if (location == null)
                 return null;
@@ -80,12 +80,12 @@ namespace ThuyetMinhTuDong.Services
 
         public class LocationObtainedEventArgs : EventArgs
         {
-            public Location Location { get; set; }
+            public Location? Location { get; set; }
         }
 
         public class PermissionDeniedEventArgs : EventArgs
         {
-            public string Message { get; set; }
+            public string Message { get; set; } = string.Empty;
         }
     }
 }

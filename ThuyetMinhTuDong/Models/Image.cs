@@ -11,6 +11,6 @@ namespace ThuyetMinhTuDong.Models
         public long PoiId { get; set; }
 
         [JsonPropertyName("image_url")]
-        public string ImageUrl { get; set; }
+        public string ImageUrl { get; set; } = string.Empty;
     }
 }

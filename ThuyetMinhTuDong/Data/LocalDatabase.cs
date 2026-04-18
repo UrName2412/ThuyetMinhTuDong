@@ -5,7 +5,7 @@ namespace ThuyetMinhTuDong.Data
 {
     public class LocalDatabase
     {
-        private SQLiteAsyncConnection _database;
+        private SQLiteAsyncConnection _database = null!;
         private readonly string _dbPath;
 
         public LocalDatabase(string dbPath)
@@ -246,7 +246,7 @@ namespace ThuyetMinhTuDong.Data
     public class SyncState
     {
         [PrimaryKey]
-        public string Key { get; set; }
+        public string Key { get; set; } = string.Empty;
         public DateTime LastSyncTime { get; set; }
     }
 
@@ -254,12 +254,12 @@ namespace ThuyetMinhTuDong.Data
     public class TranslationCache
     {
         [PrimaryKey]
-        public string Id { get; set; }
-        
-        public int? POIId { get; set; }  // ← Link với POI để xóa khi POI bị xóa
-        public string SourceText { get; set; }
-        public string TargetLanguage { get; set; }
-        public string TranslatedText { get; set; }
+        public string Id { get; set; } = string.Empty;
+
+        public int? POIId { get; set; }
+        public string SourceText { get; set; } = string.Empty;
+        public string TargetLanguage { get; set; } = string.Empty;
+        public string TranslatedText { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
     }
 }

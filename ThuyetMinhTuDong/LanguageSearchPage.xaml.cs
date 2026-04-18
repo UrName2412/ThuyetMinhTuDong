@@ -6,7 +6,7 @@ namespace ThuyetMinhTuDong;
 [QueryProperty(nameof(Purpose), "purpose")]
 public partial class LanguageSearchPage : ContentPage
 {
-    private IEnumerable<Locale> _allLocales;
+    private IEnumerable<Locale>? _allLocales;
     private ObservableCollection<string> _displayedLanguages;
     private Dictionary<string, string> _languageCodeMap;
 
@@ -51,15 +51,15 @@ public partial class LanguageSearchPage : ContentPage
 
         try
         {
-            await Task.Run(async () => 
+            await Task.Run(async () =>
             {
                 var locales = await TextToSpeech.Default.GetLocalesAsync();
 
                 if (locales == null || !locales.Any())
                 {
-                    MainThread.BeginInvokeOnMainThread(async () => 
+                    MainThread.BeginInvokeOnMainThread(async () =>
                     {
-                        await DisplayAlert("Thông báo", "Không tìm thấy ngôn ngữ nào trên thiết bị.", "OK");
+                        await DisplayAlertAsync("Thông báo", "Không tìm thấy ngôn ngữ nào trên thiết bị.", "OK");
                         await Shell.Current.GoToAsync("..");
                     });
                     return;
@@ -109,12 +109,12 @@ public partial class LanguageSearchPage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Lỗi", $"Không thể tải danh sách ngôn ngữ: {ex.Message}", "OK");
+            await DisplayAlertAsync("Lỗi", $"Không thể tải danh sách ngôn ngữ: {ex.Message}", "OK");
             await Shell.Current.GoToAsync("..");
         }
     }
 
-    private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
+    private void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
         var searchText = e.NewTextValue?.ToLower() ?? string.Empty;
 
@@ -148,15 +148,18 @@ public partial class LanguageSearchPage : ContentPage
         }
     }
 
-    private async void OnLanguageSelected(object sender, SelectionChangedEventArgs e)
+    private async void OnLanguageSelected(object? sender, SelectionChangedEventArgs e)
     {
+        if (sender is not CollectionView collectionView)
+            return;
+
         if (e.CurrentSelection.FirstOrDefault() is string selectedLanguage)
         {
             // Lấy mã ngôn ngữ từ dictionary
             if (_languageCodeMap.TryGetValue(selectedLanguage, out var languageCode))
             {
                 // Reset selection trước khi navigate
-                ((CollectionView)sender).SelectedItem = null;
+                collectionView.SelectedItem = null;
 
                 var display = selectedLanguage.Split('(')[0].Trim();
 
@@ -173,12 +176,12 @@ public partial class LanguageSearchPage : ContentPage
                 }
 
                 // Truyền dữ liệu về MainPage thông qua Navigation Parameters
-                await Shell.Current.GoToAsync($"..", navParameters);
+                await Shell.Current.GoToAsync("..", navParameters);
             }
         }
     }
 
-    private async void OnCloseClicked(object sender, EventArgs e)
+    private async void OnCloseClicked(object? sender, EventArgs e)
     {
         await Shell.Current.GoToAsync("..");
     }

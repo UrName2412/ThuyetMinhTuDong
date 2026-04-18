@@ -14,8 +14,7 @@ namespace ThuyetMinhTuDong.Services
         {
             try
             {
-                // Sinh hoặc lấy deviceId
-                var deviceId = Preferences.Default.Get("device_id", (string)null);
+                var deviceId = Preferences.Default.Get<string?>("device_id", null);
                 if (string.IsNullOrWhiteSpace(deviceId))
                 {
                     deviceId = Guid.NewGuid().ToString();

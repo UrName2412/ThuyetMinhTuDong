@@ -13,7 +13,7 @@ namespace ThuyetMinhTuDong.Services
     public class PlaceService
     {
         private readonly LocalDatabase _database;
-        private List<PointOfInterest> _cachedPois;
+        private List<PointOfInterest>? _cachedPois;
         private static readonly HttpClient _httpClient = new HttpClient();
 
         public PlaceService(LocalDatabase database)
@@ -172,7 +172,7 @@ namespace ThuyetMinhTuDong.Services
         /// <summary>
         /// Converts POI to a Map Pin for display.
         /// </summary>
-        public Microsoft.Maui.Controls.Maps.Pin CreateMapPin(PointOfInterest poi)
+        public Microsoft.Maui.Controls.Maps.Pin? CreateMapPin(PointOfInterest poi)
         {
             if (poi == null || string.IsNullOrWhiteSpace(poi.Name))
                 return null;
@@ -198,7 +198,7 @@ namespace ThuyetMinhTuDong.Services
         /// Synchronizes POIs from the web API with soft delete support.
         /// Detects deleted POIs and updates local database accordingly.
         /// </summary>
-        public async Task<bool> SyncPOIsFromApiAsync(string apiUrl, string apiKey = null)
+        public async Task<bool> SyncPOIsFromApiAsync(string apiUrl, string? apiKey = null)
         {
             if (string.IsNullOrWhiteSpace(apiUrl))
             {
@@ -234,17 +234,11 @@ namespace ThuyetMinhTuDong.Services
 
                 var json = await response.Content.ReadAsStringAsync();
                 System.Diagnostics.Debug.WriteLine($"[Sync] Received {json?.Length ?? 0} bytes");
-                
-                // ✅ DEBUG: Log first POI to see structure
-                if (!string.IsNullOrEmpty(json))
+
+                if (string.IsNullOrWhiteSpace(json))
                 {
-                    try
-                    {
-                        var firstPoiEnd = json.IndexOf("},") > 0 ? json.IndexOf("},") + 1 : json.Length - 1;
-                        string firstPoi = json.Substring(0, Math.Min(500, firstPoiEnd));
-                        System.Diagnostics.Debug.WriteLine($"[Sync] First POI sample: {firstPoi}");
-                    }
-                    catch { }
+                    System.Diagnostics.Debug.WriteLine("[Sync] Empty response body.");
+                    return false;
                 }
 
                 using var doc = JsonDocument.Parse(json);
@@ -358,7 +352,7 @@ namespace ThuyetMinhTuDong.Services
         /// <summary>
         /// Synchronizes POIs from the web API and updates the local database.
         /// </summary>
-        public async Task<bool> SyncPOIsFromApiAsync_OLD(string apiUrl, string apiKey = null)
+        public async Task<bool> SyncPOIsFromApiAsync_OLD(string apiUrl, string? apiKey = null)
         {
             if (string.IsNullOrWhiteSpace(apiUrl))
             {
@@ -399,6 +393,12 @@ namespace ThuyetMinhTuDong.Services
                 var json = await response.Content.ReadAsStringAsync();
                 System.Diagnostics.Debug.WriteLine($"[POI_SYNC] JSON length: {json?.Length ?? 0}");
 
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    System.Diagnostics.Debug.WriteLine("[POI_SYNC] Empty response body.");
+                    return false;
+                }
+
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.ValueKind != JsonValueKind.Array)
                 {
@@ -418,7 +418,7 @@ namespace ThuyetMinhTuDong.Services
                     var longitude = GetDouble(item, "longitude", "lng", "lon");
 
                     var description = GetString(item, "description", "desc", "mo_ta") ?? string.Empty;
-                    var audioUrl = GetString(item, "audio_url", "audioUrl", "image_url");
+                    var audioUrl = GetString(item, "audio_url", "audioUrl", "image_url") ?? string.Empty;
 
                     pois.Add(new PointOfInterest
                     {
@@ -451,7 +451,7 @@ namespace ThuyetMinhTuDong.Services
             }
         }
 
-        private static string GetString(JsonElement item, params string[] keys)
+        private static string? GetString(JsonElement item, params string[] keys)
         {
             foreach (var key in keys)
             {
@@ -502,10 +502,10 @@ namespace ThuyetMinhTuDong.Services
             public int Id { get; set; }
 
             [JsonPropertyName("name")]
-            public string Name { get; set; }
+            public string Name { get; set; } = string.Empty;
 
             [JsonPropertyName("description")]
-            public string Description { get; set; }
+            public string Description { get; set; } = string.Empty;
 
             [JsonPropertyName("latitude")]
             public double Latitude { get; set; }
@@ -514,10 +514,10 @@ namespace ThuyetMinhTuDong.Services
             public double Longitude { get; set; }
 
             [JsonPropertyName("audio_url")]
-            public string AudioUrl { get; set; }
+            public string AudioUrl { get; set; } = string.Empty;
 
             [JsonPropertyName("image_url")]
-            public string ImageUrl { get; set; }
+            public string ImageUrl { get; set; } = string.Empty;
         }
     }
 }
