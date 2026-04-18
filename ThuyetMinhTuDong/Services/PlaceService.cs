@@ -273,20 +273,30 @@ namespace ThuyetMinhTuDong.Services
                 }
                 remotePois = validRemotePois;
 
-                // Đồng bộ 100%: Xóa sạch local copy cũ và lưu đè tất cả các POI từ remote API xuống
-                await _database.DeleteAllPOIsAsync();
-                System.Diagnostics.Debug.WriteLine("[Sync] Đã xóa toàn bộ cache POI local cũ để nhận dữ liệu mới");
+                // Đồng bộ thông minh: Upsert POI thay vì xóa toàn bộ để tránh LocalId tăng liên tục
+                var localPois = await _database.GetPOIsAsync();
+                var remotePoiIds = remotePois.Select(p => p.Id).ToHashSet();
 
-                var activeRemotePois = remotePois.Where(x => !x.IsDeleted).ToList();
-                if (activeRemotePois.Any())
+                // Xóa POI local không còn trong remote
+                var poisToDelete = localPois.Where(p => !remotePoiIds.Contains(p.Id)).ToList();
+                foreach (var poi in poisToDelete)
                 {
-                    await _database.SavePOIsBatchAsync(activeRemotePois);
-                    System.Diagnostics.Debug.WriteLine($"[Sync] 💾 Đã lưu thành công {activeRemotePois.Count} POIs đang hoạt động từ Remote xuống Local.");
+                    await _database.DeletePOIAsync(poi);
+                    System.Diagnostics.Debug.WriteLine($"[Sync] Deleted POI: {poi.Name} (ID: {poi.Id})");
                 }
+
+                // Upsert tất cả POI từ remote (cập nhật nếu tồn tại, thêm mới nếu không)
+                if (remotePois.Any())
+                {
+                    await _database.SavePOIsBatchAsync(remotePois);
+                    System.Diagnostics.Debug.WriteLine($"[Sync] 💾 Đã upsert thành công {remotePois.Count} POIs từ Remote.");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[Sync] Upsert completed: {remotePois.Count} remote POIs, {poisToDelete.Count} deleted locally");
 
                 // Update sync time
                 await _database.UpdateSyncTimeAsync("poi_last_sync", DateTime.Now);
-                System.Diagnostics.Debug.WriteLine($"[Sync] Xong! Số lượng POI active thực tế: {activeRemotePois.Count}");
+                System.Diagnostics.Debug.WriteLine($"[Sync] Xong! Số lượng POI active thực tế: {remotePois.Count}");
 
                 // Invalidate memory cache
                 _cachedPois = null;

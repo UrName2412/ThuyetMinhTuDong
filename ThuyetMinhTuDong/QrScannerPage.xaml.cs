@@ -15,8 +15,17 @@ public class QrScannerPage : ContentPage
         var qrReader = new CameraBarcodeReaderView
         {
             IsDetecting = true,
+            CameraLocation = CameraLocation.Rear,
             HorizontalOptions = LayoutOptions.Fill,
-            VerticalOptions = LayoutOptions.Fill
+            VerticalOptions = LayoutOptions.Fill,
+            Options = new BarcodeReaderOptions
+            {
+                Formats = BarcodeFormat.QrCode,
+                AutoRotate = true,
+                Multiple = false,
+                TryHarder = true,
+                TryInverted = true
+            }
         };
         qrReader.BarcodesDetected += OnBarcodesDetected;
 
@@ -32,8 +41,9 @@ public class QrScannerPage : ContentPage
             {
                 new Label
                 {
-                    Text = "Đưa mã QR vào khung camera",
-                    TextColor = Colors.White,
+                    Text = "Đang tìm QR Code... Đưa mã vào giữa hình",
+                    TextColor = Colors.LightGreen,
+                    FontAttributes = FontAttributes.Bold,
                     HorizontalOptions = LayoutOptions.Center,
                     Margin = new Thickness(0, 8, 0, 12)
                 },
@@ -53,7 +63,20 @@ public class QrScannerPage : ContentPage
         if (string.IsNullOrWhiteSpace(scannedValue))
             return;
 
-        // Log tất cả kết quả quét được
+        _isHandlingResult = true;
+
+        if (sender is CameraBarcodeReaderView qrReader)
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                qrReader.IsDetecting = false;
+            });
+        }
+
+        // Tùy ch?n: rung thi?t b? nh? d? báo hi?u dã quét thành công
+        try { HapticFeedback.Default.Perform(HapticFeedbackType.Click); } catch { }
+
+        // Log t?t c? k?t qu? quét du?c
         if (e.Results != null)
         {
             foreach (var result in e.Results)
@@ -62,22 +85,31 @@ public class QrScannerPage : ContentPage
             }
         }
 
-        _isHandlingResult = true;
-
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             try
             {
-                if (Uri.TryCreate(scannedValue, UriKind.Absolute, out var uri))
+                var qrString = scannedValue.Trim();
+
+                // Lấy ID: do mã QR value bây giờ đã đổi thành id POI
+                if (int.TryParse(qrString, out int poiId))
                 {
-                    await Launcher.Default.OpenAsync(uri);
+                    // Truyền params qrPoiId về trang gốc (MainPage) qua Shell Navigation
+                    await Shell.Current.GoToAsync($"..?qrPoiId={poiId}");
                 }
                 else
                 {
-                    await DisplayAlert("QR", scannedValue, "OK");
+                    if (Uri.TryCreate(qrString, UriKind.Absolute, out var uri))
+                    {
+                        await Launcher.Default.OpenAsync(uri);
+                        await Shell.Current.GoToAsync("..");
+                    }
+                    else
+                    {
+                        await DisplayAlert("QR", scannedValue, "OK");
+                        await Shell.Current.GoToAsync("..");
+                    }
                 }
-
-                await Shell.Current.GoToAsync("..");
             }
             finally
             {

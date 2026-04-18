@@ -5,7 +5,7 @@ namespace ThuyetMinhTuDong.Models
 {
     public class PointOfInterest
     {
-        [PrimaryKey, AutoIncrement]
+        [PrimaryKey]  // Removed AutoIncrement to use server-provided Id directly
         [JsonPropertyName("id")]
         public int Id { get; set; }
 

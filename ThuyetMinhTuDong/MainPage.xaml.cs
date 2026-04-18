@@ -6,6 +6,7 @@ namespace ThuyetMinhTuDong
 {
     [QueryProperty(nameof(SelectedLanguageCode), "selectedLanguageCode")]
     [QueryProperty(nameof(SelectedLanguageDisplay), "selectedLanguageDisplay")]
+    [QueryProperty(nameof(QrPoiId), "qrPoiId")]
     public partial class MainPage : ContentPage
     {
         private const string PlayIconGlyph = "\uf04b";
@@ -16,6 +17,7 @@ namespace ThuyetMinhTuDong
 
         private string _selectedLanguageCodeParam;
         private string _selectedLanguageDisplayParam;
+        private string _qrPoiIdParam;
         private bool isExpanded = false;
         private bool _isGpsRealtimeEnabled;
         private CancellationTokenSource? _gpsTrackingCts;
@@ -40,6 +42,42 @@ namespace ThuyetMinhTuDong
             {
                 _selectedLanguageDisplayParam = value;
                 TryHandleLanguageSelection();
+            }
+        }
+
+        public string QrPoiId
+        {
+            get => _qrPoiIdParam;
+            set
+            {
+                _qrPoiIdParam = value;
+                TryHandleQrPoiSelection();
+            }
+        }
+
+        // Xử lý khi có ID POI quét từ QR code truyền về.
+        private void TryHandleQrPoiSelection()
+        {
+            if (!string.IsNullOrEmpty(_qrPoiIdParam))
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    if (int.TryParse(_qrPoiIdParam, out int poiId))
+                    {
+                        var pois = await _viewModel.GetAllActivePoisFromCacheAsync();
+                        var poi = pois?.FirstOrDefault(p => p.Id == poiId);
+                        
+                        if (poi != null)
+                        {
+                            OnPlaceSelected(poi, "Quét QR");
+                        }
+                        else
+                        {
+                            await DisplayAlert("Mã QR", "Không tìm thấy thông tin địa điểm này.", "OK");
+                        }
+                    }
+                    _qrPoiIdParam = null;
+                });
             }
         }
 

@@ -5,13 +5,21 @@ namespace ThuyetMinhTuDong
     public partial class App : Application
     {
         private readonly OnlinePresenceService _onlinePresenceService;
+        private readonly UserService _userService;
 
-        public App(OnlinePresenceService onlinePresenceService)
+        public App(OnlinePresenceService onlinePresenceService, UserService userService)
         {
             InitializeComponent();
             _onlinePresenceService = onlinePresenceService;
+            _userService = userService;
 
             _ = MainThread.InvokeOnMainThreadAsync(async () => await _onlinePresenceService.StartAsync());
+        }
+
+        protected override void OnStart()
+        {
+            base.OnStart();
+            _ = Task.Run(async () => await _userService.RegisterUserAsync());
         }
 
         protected override void OnSleep()
