@@ -1,11 +1,14 @@
 ﻿using ThuyetMinhTuDong.Models;
 using ThuyetMinhTuDong.ViewModels;
 using Microsoft.Maui.Controls.Compatibility;
+using ThuyetMinhTuDong.Services;
 
 namespace ThuyetMinhTuDong
 {
     [QueryProperty(nameof(SelectedLanguageCode), "selectedLanguageCode")]
     [QueryProperty(nameof(SelectedLanguageDisplay), "selectedLanguageDisplay")]
+    [QueryProperty(nameof(UiLanguageCode), "uiLanguageCode")]
+    [QueryProperty(nameof(UiLanguageDisplay), "uiLanguageDisplay")]
     [QueryProperty(nameof(QrPoiId), "qrPoiId")]
     public partial class MainPage : ContentPage
     {
@@ -17,6 +20,8 @@ namespace ThuyetMinhTuDong
 
         private string _selectedLanguageCodeParam;
         private string _selectedLanguageDisplayParam;
+        private string _uiLanguageCodeParam;
+        private string _uiLanguageDisplayParam;
         private string _qrPoiIdParam;
         private bool isExpanded = false;
         private bool _isGpsRealtimeEnabled;
@@ -24,6 +29,26 @@ namespace ThuyetMinhTuDong
         private int? _lastAutoSpokenPoiId;
         private int? _lastApproachPoiId;
         private Location? _lastLoadedLocation;
+
+        public string UiLanguageCode
+        {
+            get => _uiLanguageCodeParam;
+            set
+            {
+                _uiLanguageCodeParam = value;
+                TryHandleUiLanguageSelection();
+            }
+        }
+
+        public string UiLanguageDisplay
+        {
+            get => _uiLanguageDisplayParam;
+            set
+            {
+                _uiLanguageDisplayParam = value;
+                TryHandleUiLanguageSelection();
+            }
+        }
 
         public string SelectedLanguageCode
         {
@@ -91,6 +116,19 @@ namespace ThuyetMinhTuDong
                     await HandleLanguageSelection(_selectedLanguageCodeParam, _selectedLanguageDisplayParam);
                     _selectedLanguageCodeParam = null;
                     _selectedLanguageDisplayParam = null;
+                });
+            }
+        }
+
+        private void TryHandleUiLanguageSelection()
+        {
+            if (!string.IsNullOrEmpty(_uiLanguageCodeParam) && !string.IsNullOrEmpty(_uiLanguageDisplayParam))
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    HandleUiLanguageSelection(_uiLanguageCodeParam, _uiLanguageDisplayParam);
+                    _uiLanguageCodeParam = null;
+                    _uiLanguageDisplayParam = null;
                 });
             }
         }
@@ -196,10 +234,12 @@ namespace ThuyetMinhTuDong
                     {
                         try
                         {
-                            var languageButton = this.FindByName<Button>("LanguageButton");
-                            if (languageButton != null)
+                            _ = UpdateLanguageButtonsTextAsync();
+
+                            var savedUiCode = Preferences.Default.Get("UiLanguageCode", "vi");
+                            if (!string.IsNullOrEmpty(savedUiCode) && !savedUiCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
                             {
-                                languageButton.Text = _viewModel.LanguageButtonText;
+                                _ = TranslateUIComponentsAsync(savedUiCode);
                             }
 
                             await CheckAndRequestLocationPermission();
@@ -511,9 +551,20 @@ namespace ThuyetMinhTuDong
                 WidthRequest = 90
             };
 
+            string translatedName = poi.Name;
+            string ttsLangCode = _viewModel.SelectedLanguageCode;
+            if (!string.IsNullOrEmpty(ttsLangCode) && !ttsLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+            {
+                var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ITranslateService>();
+                if (translateService != null)
+                {
+                    translatedName = await translateService.TranslateTextAsync(poi.Name, ttsLangCode);
+                }
+            }
+
             var nameLabel = new Label
             {
-                Text = poi.Name,
+                Text = translatedName,
                 TextColor = Colors.White,
                 FontAttributes = FontAttributes.Bold,
                 FontSize = 15,
@@ -641,12 +692,7 @@ namespace ThuyetMinhTuDong
             try
             {
                 await _viewModel.HandleLanguageSelectionAsync(languageCode, displayName);
-
-                var languageButton = this.FindByName<Button>("LanguageButton");
-                if (languageButton != null)
-                {
-                    languageButton.Text = _viewModel.LanguageButtonText;
-                }
+                _ = UpdateLanguageButtonsTextAsync();
             }
             catch (Exception ex)
             {
@@ -667,11 +713,144 @@ namespace ThuyetMinhTuDong
             }
         }
 
+        // Ẩn/hiện menu con chọn ngôn ngữ
+        private void OnLanguageSettingClicked(object sender, EventArgs e)
+        {
+            var overlay = this.FindByName<Microsoft.Maui.Controls.Grid>("LanguageMenuOverlay");
+            if (overlay != null)
+            {
+                overlay.IsVisible = true;
+            }
+        }
+
+        private void OnLanguageMenuBackdropTapped(object sender, TappedEventArgs e)
+        {
+            var overlay = this.FindByName<Microsoft.Maui.Controls.Grid>("LanguageMenuOverlay");
+            if (overlay != null)
+            {
+                overlay.IsVisible = false;
+            }
+        }
+
+        // Chọn ngôn ngữ cho giao diện
+        private async void OnUiLanguageClicked(object sender, EventArgs e)
+        {
+            var overlay = this.FindByName<Microsoft.Maui.Controls.Grid>("LanguageMenuOverlay");
+            if (overlay != null) overlay.IsVisible = false;
+
+            await Shell.Current.GoToAsync("languagesearch?purpose=UI");
+        }
+
+        private void HandleUiLanguageSelection(string languageCode, string displayName)
+        {
+            Preferences.Default.Set("UiLanguageCode", languageCode);
+            Preferences.Default.Set("UiLanguageDisplay", displayName);
+
+            // Gọi logic thay đổi ngôn ngữ giao diện ở đây (ví dụ thay đổi CultureInfo)
+            try
+            {
+                var culture = new System.Globalization.CultureInfo(languageCode);
+                System.Globalization.CultureInfo.CurrentCulture = culture;
+                System.Globalization.CultureInfo.CurrentUICulture = culture;
+            }
+            catch { }
+
+            _ = UpdateLanguageButtonsTextAsync();
+            _ = TranslateUIComponentsAsync(languageCode);
+        }
+
+        private async Task UpdateLanguageButtonsTextAsync()
+        {
+            var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ITranslateService>();
+            string uiLangCode = Preferences.Default.Get("UiLanguageCode", "vi");
+            string savedUiDisplay = Preferences.Default.Get("UiLanguageDisplay", "Tiếng Việt");
+            string audioLangDisplay = _viewModel.LanguageButtonText.Replace(" ▾", "");
+
+            string thuyetMinhText = "Thuyết minh";
+            string giaoDienText = "Giao diện";
+
+            if (translateService != null && !string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+            {
+                thuyetMinhText = await translateService.TranslateTextAsync(thuyetMinhText, uiLangCode);
+                giaoDienText = await translateService.TranslateTextAsync(giaoDienText, uiLangCode);
+            }
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                var audioLangButton = this.FindByName<Button>("AudioLangButton");
+                if (audioLangButton != null)
+                {
+                    audioLangButton.Text = $"{thuyetMinhText}: {audioLangDisplay}";
+                }
+
+                var uiLangButton = this.FindByName<Button>("UiLangButton");
+                if (uiLangButton != null)
+                {
+                    uiLangButton.Text = $"{giaoDienText}: {savedUiDisplay}";
+                }
+            });
+        }
+
+        private async Task TranslateUIComponentsAsync(string languageCode)
+        {
+            var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ITranslateService>();
+            if (translateService == null) return;
+
+            try
+            {
+                var ttsLabel = this.FindByName<Label>("TtsTitleLabel");
+                if (ttsLabel != null) ttsLabel.Text = await translateService.TranslateTextAsync("Thuyết minh tự động", languageCode);
+
+                var langSettingBtn = this.FindByName<Button>("LanguageSettingButton");
+                if (langSettingBtn != null) langSettingBtn.Text = await translateService.TranslateTextAsync("Cài đặt ngôn ngữ", languageCode) + " ▾";
+
+                var tab1Label = this.FindByName<Label>("LblTab1");
+                if (tab1Label != null) tab1Label.Text = await translateService.TranslateTextAsync("Giới thiệu", languageCode);
+
+                var tab2Label = this.FindByName<Label>("LblTab2");
+                if (tab2Label != null) tab2Label.Text = await translateService.TranslateTextAsync("Gần bạn", languageCode);
+
+                var statusLabel = this.FindByName<Label>("SelectPlaceStatusLabel");
+                if (statusLabel != null && statusLabel.Text == "Chưa chọn địa điểm") 
+                    statusLabel.Text = await translateService.TranslateTextAsync("Chưa chọn địa điểm", languageCode);
+
+                var headerLabel = this.FindByName<Label>("SelectPlaceHeaderLabel");
+                if (headerLabel != null && headerLabel.Text == "Chọn một địa điểm") 
+                    headerLabel.Text = await translateService.TranslateTextAsync("Chọn một địa điểm", languageCode);
+
+                var descriptionLabel = this.FindByName<Label>("DescriptionLabel");
+                if (descriptionLabel != null && descriptionLabel.Text == "Vui lòng chọn một địa điểm để xem thông tin chi tiết.") 
+                    descriptionLabel.Text = await translateService.TranslateTextAsync("Vui lòng chọn một địa điểm để xem thông tin chi tiết.", languageCode);
+
+                var mapBtn = this.FindByName<Button>("OpenMapButton");
+                if (mapBtn != null) mapBtn.Text = await translateService.TranslateTextAsync("Mở bản đồ", languageCode);
+
+                var nearbyHeader = this.FindByName<Label>("NearbyPlacesHeaderLabel");
+                if (nearbyHeader != null) nearbyHeader.Text = await translateService.TranslateTextAsync("Các địa điểm gần bạn", languageCode);
+
+                var emptyNearby = this.FindByName<Label>("EmptyNearbyLabel");
+                if (emptyNearby != null && emptyNearby.Text.StartsWith("Hiện tại không có mục nào")) 
+                    emptyNearby.Text = await translateService.TranslateTextAsync("Hiện tại không có mục nào để hiển thị.", languageCode);
+
+                var debugLabel = this.FindByName<Label>("DebugTriggerLabel");
+                if (debugLabel != null && debugLabel.Text == "Chưa vào vùng") 
+                    debugLabel.Text = await translateService.TranslateTextAsync("Chưa vào vùng", languageCode);
+
+                var menuTitleLabel = this.FindByName<Label>("LanguageMenuTitleLabel");
+                if (menuTitleLabel != null) 
+                    menuTitleLabel.Text = await translateService.TranslateTextAsync("Tùy chọn ngôn ngữ", languageCode);
+            }
+            catch { }
+        }
+
         // Mở màn hình chọn ngôn ngữ và dừng TTS nếu đang phát.
         private async void OnAddLanguageClicked(object sender, EventArgs e)
         {
             try
             {
+                var overlay = this.FindByName<Microsoft.Maui.Controls.Grid>("LanguageMenuOverlay");
+                if (overlay != null) overlay.IsVisible = false;
+
                 // Dừng TTS đang phát
                 if (_viewModel.IsPlaying)
                 {
@@ -756,7 +935,7 @@ namespace ThuyetMinhTuDong
         }
 
         // Cập nhật dữ liệu hiển thị chi tiết POI ở tab thông tin.
-        private void UpdateTab1Content(string source, string name, string description, string mapLink)
+        private async void UpdateTab1Content(string source, string name, string description, string mapLink)
         {
             _viewModel.CurrentDescriptionVietnamese = description;
             _viewModel.CurrentMapLink = mapLink;
@@ -777,55 +956,37 @@ namespace ThuyetMinhTuDong
             if (tab1Content == null)
                 return;
 
-            VerticalStackLayout statusHStack = null;
-            if (tab1Content.Content is ScrollView sv && sv.Content is VerticalStackLayout svVsl)
-            {
-                statusHStack = svVsl;
-                
-                // Tiện cập nhật nút ở đây vì nếu nó nằm trong cùng cây View
-                var btnInScroll = svVsl.FindByName<Button>("OpenMapButton");
-                if (btnInScroll != null)
-                {
-                    btnInScroll.IsVisible = !string.IsNullOrWhiteSpace(mapLink);
-                }
-            }
-            else if (tab1Content.Content is VerticalStackLayout vsl)
-            {
-                statusHStack = vsl;
-            }
+            string ttsLangCode = _viewModel.SelectedLanguageCode;
+            string translatedName = name;
+            string translatedDesc = description;
 
-            if (statusHStack != null && statusHStack.Children.Count > 0)
+            string translatedSource = source;
+            if (!string.IsNullOrEmpty(ttsLangCode) && !ttsLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
             {
-                // Cập nhật nhãn trạng thái
-                if (statusHStack.Children[0] is HorizontalStackLayout statusLayout && statusLayout.Children.Count > 1)
+                var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ITranslateService>();
+                if (translateService != null)
                 {
-                    if (statusLayout.Children[1] is Label statusLabel)
+                    translatedName = await translateService.TranslateTextAsync(name, ttsLangCode);
+                    translatedDesc = await translateService.TranslateTextAsync(description, ttsLangCode);
+                    try
                     {
-                        statusLabel.Text = $"{source} · {name}";
+                        translatedSource = await translateService.TranslateTextAsync(source, ttsLangCode);
                     }
-                }
-
-                // Cập nhật tiêu đề
-                if (statusHStack.Children.Count > 1 && statusHStack.Children[1] is Label titleLabel)
-                {
-                    titleLabel.Text = name;
-                }
-
-                // Cập nhật mô tả
-                var descriptionLabel = this.FindByName<Label>("DescriptionLabel");
-                if (descriptionLabel != null)
-                {
-                    descriptionLabel.Text = description;
-                }
-                else if (statusHStack.Children.Count > 2 && statusHStack.Children[2] is ScrollView svDesc && svDesc.Content is Label svDescLabel)
-                {
-                    svDescLabel.Text = description;
-                }
-                else if (statusHStack.Children.Count > 2 && statusHStack.Children[2] is Label oldDescLabel)
-                {
-                    oldDescLabel.Text = description;
+                    catch { }
                 }
             }
+
+            var statusLabel = this.FindByName<Label>("SelectPlaceStatusLabel");
+            if (statusLabel != null) 
+                statusLabel.Text = $"{translatedSource} · {translatedName}";
+
+            var headerLabel = this.FindByName<Label>("SelectPlaceHeaderLabel");
+            if (headerLabel != null) 
+                headerLabel.Text = translatedName;
+
+            var descLabel = this.FindByName<Label>("DescriptionLabel");
+            if (descLabel != null) 
+                descLabel.Text = translatedDesc;
         }
 
         // Mở rộng drawer nếu hiện tại đang thu gọn.
@@ -939,6 +1100,9 @@ namespace ThuyetMinhTuDong
                 isTtsToggled = ttsSwitch != null && ttsSwitch.IsToggled;
             });
 
+            string uiLangCode = Preferences.Default.Get("UiLanguageCode", "vi");
+            var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ITranslateService>();
+
             if (!isTtsToggled)
                 return;
 
@@ -979,6 +1143,11 @@ namespace ThuyetMinhTuDong
             if (nearestPoiModel == null)
             {
                 debugNewText = "Không có điểm nào < 80m";
+                if (translateService != null && !string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+                {
+                    debugNewText = await translateService.TranslateTextAsync(debugNewText, uiLangCode);
+                }
+
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     var debugLabel = this.FindByName<Label>("DebugTriggerLabel");
@@ -990,11 +1159,28 @@ namespace ThuyetMinhTuDong
                 return;
             }
 
-            debugNewText = $"Gần: {nearestPoiModel.Name} ({nearestPoiDistance:N0}m / {nearestPoiTriggerRadius}m)";
+            string translatedName = nearestPoiModel.Name;
+            if (translateService != null && !string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+            {
+                translatedName = await translateService.TranslateTextAsync(translatedName, uiLangCode);
+            }
+
+            string nearText = "Gần";
+            string approachText = "Đã tiếp cận (Chưa phát TTS)";
+            string playedText = "Đã phát TTS !!!";
+
+            if (translateService != null && !string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+            {
+                nearText = await translateService.TranslateTextAsync(nearText, uiLangCode);
+                approachText = await translateService.TranslateTextAsync(approachText, uiLangCode);
+                playedText = await translateService.TranslateTextAsync(playedText, uiLangCode);
+            }
+
+            debugNewText = $"{nearText}: {translatedName} ({nearestPoiDistance:N0}m / {nearestPoiTriggerRadius}m)";
 
             if (nearestPoiDistance > nearestPoiTriggerRadius)
             {
-                debugNewText += " - Đã tiếp cận (Chưa phát TTS)";
+                debugNewText += $" - {approachText}";
 
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
@@ -1016,7 +1202,7 @@ namespace ThuyetMinhTuDong
                 return;
             }
 
-            debugNewText += " - Đã phát TTS !!!";
+            debugNewText += $" - {playedText}";
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {

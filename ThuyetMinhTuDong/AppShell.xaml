@@ -6,6 +6,8 @@
     xmlns:local="clr-namespace:ThuyetMinhTuDong"
     Title="ThuyetMinhTuDong">
 
+    <Shell.NavBarIsVisible>false</Shell.NavBarIsVisible>
+
     <ShellContent
         Title="Home"
         ContentTemplate="{DataTemplate local:MainPage}"

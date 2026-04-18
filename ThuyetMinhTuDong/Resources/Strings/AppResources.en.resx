@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, ...</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value>
+  </resheader>
+  <data name="Thuyết minh tự động" xml:space="preserve">
+    <value>Auto narration</value>
+  </data>
+  <data name="Cài đặt ngôn ngữ" xml:space="preserve">
+    <value>Language settings</value>
+  </data>
+  <data name="Giới thiệu" xml:space="preserve">
+    <value>Introduction</value>
+  </data>
+  <data name="Gần bạn" xml:space="preserve">
+    <value>Nearby</value>
+  </data>
+  <data name="Chưa chọn địa điểm" xml:space="preserve">
+    <value>No location has been selected yet</value>
+  </data>
+  <data name="Chọn một địa điểm" xml:space="preserve">
+    <value>Choose a location</value>
+  </data>
+  <data name="Vui lòng chọn một địa điểm để xem thông tin chi tiết." xml:space="preserve">
+    <value>Please select a location to view details.</value>
+  </data>
+  <data name="Mở bản đồ" xml:space="preserve">
+    <value>Open map</value>
+  </data>
+  <data name="Các địa điểm gần bạn" xml:space="preserve">
+    <value>Nearby places</value>
+  </data>
+  <data name="Hiện tại không có mục nào để hiển thị." xml:space="preserve">
+    <value>There are currently no items to display.</value>
+  </data>
+  <data name="Chưa vào vùng" xml:space="preserve">
+    <value>Not in region yet</value>
+  </data>
+  <data name="Tùy chọn ngôn ngữ" xml:space="preserve">
+    <value>Language options</value>
+  </data>
+  <data name="Thuyết minh" xml:space="preserve">
+    <value>Narration</value>
+  </data>
+  <data name="Giao diện" xml:space="preserve">
+    <value>Interface</value>
+  </data>
+  <data name="QR" xml:space="preserve">
+    <value>QR</value>
+  </data>
+  <data name="GPS: OFF" xml:space="preserve">
+    <value>GPS: OFF</value>
+  </data>
+  <data name="GPS: ON" xml:space="preserve">
+    <value>GPS: ON</value>
+  </data>
+  <data name="Chọn ngôn ngữ" xml:space="preserve">
+    <value>Choose language</value>
+  </data>
+</root>

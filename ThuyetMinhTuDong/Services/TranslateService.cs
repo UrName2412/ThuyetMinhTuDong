@@ -31,6 +31,23 @@ namespace ThuyetMinhTuDong.Services
             if (targetLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
                 return text;
 
+            // Lấy từ file resource (nếu có custom đè)
+            try
+            {
+                var dictManager = new System.Resources.ResourceManager("ThuyetMinhTuDong.Resources.Strings.AppResources", System.Reflection.Assembly.GetExecutingAssembly());
+                var culture = new System.Globalization.CultureInfo(targetLangCode);
+                var resourceValue = dictManager.GetString(text, culture);
+                if (!string.IsNullOrWhiteSpace(resourceValue))
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RESX HIT] {text} -> {resourceValue}");
+                    return resourceValue;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RESX Error] {ex.Message}");
+            }
+
             var offlineResult = TryGetOfflineTranslation(text, targetLangCode);
             if (offlineResult != null)
             {

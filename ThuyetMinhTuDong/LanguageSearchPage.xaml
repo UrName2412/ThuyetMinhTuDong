@@ -8,7 +8,7 @@
     <Grid RowDefinitions="Auto,Auto,*" Padding="15">
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20">
-            <Label Text="Chọn ngôn ngữ TTS" TextColor="White" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
+            <Label x:Name="MyTitleLabel" Text="Chọn ngôn ngữ" TextColor="White" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
             <Button Grid.Column="1" Text="✕" TextColor="#D4AF37" FontSize="18" BackgroundColor="Transparent" Padding="10" CornerRadius="16" BorderColor="#B71C1C" BorderWidth="1" Clicked="OnCloseClicked" />
         </Grid>
 
@@ -47,3 +47,4 @@
         </CollectionView>
     </Grid>
 </ContentPage>
+

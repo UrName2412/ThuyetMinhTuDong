@@ -1,12 +1,21 @@
 using System.Collections.ObjectModel;
+using ThuyetMinhTuDong.Services;
 
 namespace ThuyetMinhTuDong;
 
+[QueryProperty(nameof(Purpose), "purpose")]
 public partial class LanguageSearchPage : ContentPage
 {
     private IEnumerable<Locale> _allLocales;
     private ObservableCollection<string> _displayedLanguages;
     private Dictionary<string, string> _languageCodeMap;
+
+    private string _purpose = "Audio"; // Audio or UI
+    public string Purpose
+    {
+        get => _purpose;
+        set => _purpose = value;
+    }
 
     public LanguageSearchPage()
     {
@@ -19,6 +28,26 @@ public partial class LanguageSearchPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+
+        try
+        {
+            var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ITranslateService>();
+            if (translateService != null)
+            {
+                var langCode = Preferences.Default.Get("UiLanguageCode", "vi");
+                var translatedTitle = await translateService.TranslateTextAsync("Chọn ngôn ngữ", langCode);
+                var translatedPlaceholder = await translateService.TranslateTextAsync("Tìm kiếm ngôn ngữ...", langCode);
+
+                MainThread.BeginInvokeOnMainThread(() => 
+                {
+                    if (MyTitleLabel != null) MyTitleLabel.Text = translatedTitle;
+                    Title = translatedTitle;
+
+                    if (SearchLanguageBar != null) SearchLanguageBar.Placeholder = translatedPlaceholder;
+                });
+            }
+        }
+        catch { }
 
         try
         {
@@ -129,12 +158,22 @@ public partial class LanguageSearchPage : ContentPage
                 // Reset selection trước khi navigate
                 ((CollectionView)sender).SelectedItem = null;
 
-                // Truyền dữ liệu về MainPage thông qua Navigation Parameters
-                await Shell.Current.GoToAsync($"..", new Dictionary<string, object>
+                var display = selectedLanguage.Split('(')[0].Trim();
+
+                var navParameters = new Dictionary<string, object>();
+                if (string.Equals(Purpose, "UI", StringComparison.OrdinalIgnoreCase))
                 {
-                    { "selectedLanguageCode", languageCode },
-                    { "selectedLanguageDisplay", selectedLanguage.Split('(')[0].Trim() }
-                });
+                    navParameters.Add("uiLanguageCode", languageCode);
+                    navParameters.Add("uiLanguageDisplay", display);
+                }
+                else
+                {
+                    navParameters.Add("selectedLanguageCode", languageCode);
+                    navParameters.Add("selectedLanguageDisplay", display);
+                }
+
+                // Truyền dữ liệu về MainPage thông qua Navigation Parameters
+                await Shell.Current.GoToAsync($"..", navParameters);
             }
         }
     }
