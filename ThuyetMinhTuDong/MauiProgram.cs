@@ -16,8 +16,8 @@ namespace ThuyetMinhTuDong
             builder
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
-                .UseMauiMaps()
                 .UseBarcodeReader()
+                .UseMauiMaps()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -35,6 +35,8 @@ namespace ThuyetMinhTuDong
 
             builder.Services.AddSingleton<PlaceService>();
             builder.Services.AddSingleton<LocationService>();
+            builder.Services.AddSingleton<StatusService>();
+            builder.Services.AddSingleton<OnlinePresenceService>();
             builder.Services.AddSingleton<ITranslateService, TranslateService>();
             builder.Services.AddSingleton<TTSService>();
             builder.Services.AddSingleton<IPoiRepository, PoiRepository>();
@@ -42,7 +44,7 @@ namespace ThuyetMinhTuDong
             // Register ViewModels and Pages
             builder.Services.AddTransient<MainPageViewModel>();
             builder.Services.AddTransient<MainPage>();
-            builder.Services.AddTransient<QrScannerPage>();
+            builder.Services.AddTransient<ScanQrPage>();
 
             return builder.Build();
         }
