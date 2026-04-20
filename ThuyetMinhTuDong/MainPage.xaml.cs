@@ -17,6 +17,7 @@ namespace ThuyetMinhTuDong
         private const string PlayIconGlyph = "\uf04b";
         private const string PauseIconGlyph = "\uf04c";
         private const double ApproachRadiusMeters = 80;
+        private const double EqualDistanceToleranceMeters = 1.5;
 
         private readonly MainPageViewModel _viewModel;
 
@@ -31,6 +32,8 @@ namespace ThuyetMinhTuDong
         private int? _lastAutoSpokenPoiId;
         private int? _lastApproachPoiId;
         private Location? _lastLoadedLocation;
+        private string? _equalDistanceTieKey;
+        private readonly HashSet<int> _equalDistanceSpokenPoiIds = new();
 
         public string? UiLanguageCode
         {
@@ -424,6 +427,8 @@ namespace ThuyetMinhTuDong
             _isGpsRealtimeEnabled = false;
             _lastAutoSpokenPoiId = null;
             _lastApproachPoiId = null;
+            _equalDistanceTieKey = null;
+            _equalDistanceSpokenPoiIds.Clear();
             UpdateGpsToggleButton();
         }
 
@@ -1133,29 +1138,34 @@ namespace ThuyetMinhTuDong
             {
                 _lastAutoSpokenPoiId = null;
                 _lastApproachPoiId = null;
+                _equalDistanceTieKey = null;
+                _equalDistanceSpokenPoiIds.Clear();
                 return;
             }
 
-            PointOfInterest? nearestPoiModel = null;
-            double nearestPoiDistance = double.MaxValue;
-            double nearestPoiTriggerRadius = 30;
-
-            foreach (var poi in activePois)
-            {
-                double dist = Location.CalculateDistance(
-                    currentLocation.Latitude,
-                    currentLocation.Longitude,
-                    poi.Latitude,
-                    poi.Longitude,
-                    Microsoft.Maui.Devices.Sensors.DistanceUnits.Kilometers) * 1000d;
-
-                if (dist <= ApproachRadiusMeters && dist < nearestPoiDistance)
+            var nearbyCandidates = activePois
+                .Select(poi => new
                 {
-                    nearestPoiDistance = dist;
-                    nearestPoiModel = poi;
-                    nearestPoiTriggerRadius = Math.Max(1, poi.Radius ?? 30);
-                }
-            }
+                    Poi = poi,
+                    Distance = Location.CalculateDistance(
+                        currentLocation.Latitude,
+                        currentLocation.Longitude,
+                        poi.Latitude,
+                        poi.Longitude,
+                        Microsoft.Maui.Devices.Sensors.DistanceUnits.Kilometers) * 1000d,
+                    TriggerRadius = (double)Math.Max(1, poi.Radius ?? 30)
+                })
+                .Where(x => x.Distance <= ApproachRadiusMeters)
+                .ToList();
+
+            var nearestCandidate = nearbyCandidates
+                .OrderBy(x => x.Distance)
+                .ThenBy(x => x.Poi.Id)
+                .FirstOrDefault();
+
+            PointOfInterest? nearestPoiModel = nearestCandidate?.Poi;
+            double nearestPoiDistance = nearestCandidate?.Distance ?? double.MaxValue;
+            double nearestPoiTriggerRadius = nearestCandidate?.TriggerRadius ?? 30;
 
             string debugNewText = "";
 
@@ -1175,7 +1185,54 @@ namespace ThuyetMinhTuDong
 
                 _lastAutoSpokenPoiId = null;
                 _lastApproachPoiId = null;
+                _equalDistanceTieKey = null;
+                _equalDistanceSpokenPoiIds.Clear();
                 return;
+            }
+
+            var tieCandidates = nearbyCandidates
+                .Where(x => Math.Abs(x.Distance - nearestPoiDistance) <= EqualDistanceToleranceMeters)
+                .OrderBy(x => x.Poi.Id)
+                .ToList();
+
+            var activeTieCandidates = tieCandidates
+                .Where(x => x.Distance <= x.TriggerRadius)
+                .ToList();
+
+            if (activeTieCandidates.Count > 1)
+            {
+                var tieKey = string.Join(",", activeTieCandidates.Select(x => x.Poi.Id));
+                if (!string.Equals(_equalDistanceTieKey, tieKey, StringComparison.Ordinal))
+                {
+                    _equalDistanceTieKey = tieKey;
+                    _equalDistanceSpokenPoiIds.Clear();
+                }
+
+                var nextInQueue = activeTieCandidates.FirstOrDefault(x => !_equalDistanceSpokenPoiIds.Contains(x.Poi.Id));
+                if (nextInQueue == null)
+                {
+                    string doneQueueText = "Đã phát hết hàng đợi đồng khoảng cách";
+                    if (translateService != null && !string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+                    {
+                        doneQueueText = await translateService.TranslateTextAsync(doneQueueText, uiLangCode);
+                    }
+
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        var debugLabel = this.FindByName<Label>("DebugTriggerLabel");
+                        if (debugLabel != null) debugLabel.Text = doneQueueText;
+                    });
+                    return;
+                }
+
+                nearestPoiModel = nextInQueue.Poi;
+                nearestPoiDistance = nextInQueue.Distance;
+                nearestPoiTriggerRadius = nextInQueue.TriggerRadius;
+            }
+            else
+            {
+                _equalDistanceTieKey = null;
+                _equalDistanceSpokenPoiIds.Clear();
             }
 
             string translatedName = nearestPoiModel.Name;
@@ -1223,6 +1280,21 @@ namespace ThuyetMinhTuDong
 
             debugNewText += $" - {playedText}";
 
+            if (activeTieCandidates.Count > 1)
+            {
+                string orderText = "Thứ tự";
+                string queueText = "Hàng đợi";
+                if (translateService != null && !string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+                {
+                    orderText = await translateService.TranslateTextAsync(orderText, uiLangCode);
+                    queueText = await translateService.TranslateTextAsync(queueText, uiLangCode);
+                }
+
+                var order = activeTieCandidates.FindIndex(x => x.Poi.Id == nearestPoiModel.Id) + 1;
+                var queueItems = activeTieCandidates.Select((x, idx) => $"{idx + 1}.{x.Poi.Name}");
+                debugNewText += $" · {orderText}: {order}/{activeTieCandidates.Count}\n{queueText}: {string.Join(" | ", queueItems)}";
+            }
+
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 var debugLabel = this.FindByName<Label>("DebugTriggerLabel");
@@ -1234,6 +1306,7 @@ namespace ThuyetMinhTuDong
 
             _lastApproachPoiId = nearestPoiModel.Id;
             _lastAutoSpokenPoiId = nearestPoiModel.Id;
+            _equalDistanceSpokenPoiIds.Add(nearestPoiModel.Id);
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
