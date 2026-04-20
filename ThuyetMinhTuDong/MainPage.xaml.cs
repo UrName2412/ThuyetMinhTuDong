@@ -32,8 +32,6 @@ namespace ThuyetMinhTuDong
         private int? _lastAutoSpokenPoiId;
         private int? _lastApproachPoiId;
         private Location? _lastLoadedLocation;
-        private string? _equalDistanceTieKey;
-        private readonly HashSet<int> _equalDistanceSpokenPoiIds = new();
 
         public string? UiLanguageCode
         {
@@ -413,8 +411,6 @@ namespace ThuyetMinhTuDong
             _isGpsRealtimeEnabled = false;
             _lastAutoSpokenPoiId = null;
             _lastApproachPoiId = null;
-            _equalDistanceTieKey = null;
-            _equalDistanceSpokenPoiIds.Clear();
             UpdateGpsToggleButton();
         }
 
@@ -1125,8 +1121,6 @@ namespace ThuyetMinhTuDong
             {
                 _lastAutoSpokenPoiId = null;
                 _lastApproachPoiId = null;
-                _equalDistanceTieKey = null;
-                _equalDistanceSpokenPoiIds.Clear();
                 return;
             }
 
@@ -1147,6 +1141,7 @@ namespace ThuyetMinhTuDong
 
             var nearestCandidate = nearbyCandidates
                 .OrderBy(x => x.Distance)
+                .ThenByDescending(x => x.Poi.Preference)
                 .ThenBy(x => x.Poi.Id)
                 .FirstOrDefault();
 
@@ -1172,14 +1167,13 @@ namespace ThuyetMinhTuDong
 
                 _lastAutoSpokenPoiId = null;
                 _lastApproachPoiId = null;
-                _equalDistanceTieKey = null;
-                _equalDistanceSpokenPoiIds.Clear();
                 return;
             }
 
             var tieCandidates = nearbyCandidates
                 .Where(x => Math.Abs(x.Distance - nearestPoiDistance) <= EqualDistanceToleranceMeters)
-                .OrderBy(x => x.Poi.Id)
+                .OrderByDescending(x => x.Poi.Preference)
+                .ThenBy(x => x.Poi.Id)
                 .ToList();
 
             var activeTieCandidates = tieCandidates
@@ -1188,22 +1182,14 @@ namespace ThuyetMinhTuDong
 
             if (activeTieCandidates.Count > 1)
             {
-                nearestPoiModel = activeTieCandidates
-                    .OrderBy(x => x.Poi.Id)
-                    .Select(x => x.Poi)
+                var highestPreferenceCandidate = activeTieCandidates
+                    .OrderByDescending(x => x.Poi.Preference)
+                    .ThenBy(x => x.Poi.Id)
                     .First();
 
-                var prioritizedCandidate = activeTieCandidates.First(x => x.Poi.Id == nearestPoiModel.Id);
-                nearestPoiDistance = prioritizedCandidate.Distance;
-                nearestPoiTriggerRadius = prioritizedCandidate.TriggerRadius;
-
-                _equalDistanceTieKey = string.Join(",", activeTieCandidates.Select(x => x.Poi.Id));
-                _equalDistanceSpokenPoiIds.Clear();
-            }
-            else
-            {
-                _equalDistanceTieKey = null;
-                _equalDistanceSpokenPoiIds.Clear();
+                nearestPoiModel = highestPreferenceCandidate.Poi;
+                nearestPoiDistance = highestPreferenceCandidate.Distance;
+                nearestPoiTriggerRadius = highestPreferenceCandidate.TriggerRadius;
             }
 
             string translatedName = nearestPoiModel.Name;
@@ -1253,13 +1239,13 @@ namespace ThuyetMinhTuDong
 
             if (activeTieCandidates.Count > 1)
             {
-                string priorityText = "Đã ưu tiên phát POI có ID cũ nhất";
+                string priorityText = "Ưu tiên theo preference";
                 if (translateService != null && !string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
                 {
                     priorityText = await translateService.TranslateTextAsync(priorityText, uiLangCode);
                 }
 
-                debugNewText += $" · {priorityText}";
+                debugNewText += $" · {priorityText}: P{nearestPoiModel.Preference}";
             }
 
             await MainThread.InvokeOnMainThreadAsync(() =>

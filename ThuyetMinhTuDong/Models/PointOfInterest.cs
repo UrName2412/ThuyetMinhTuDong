@@ -24,6 +24,9 @@ namespace ThuyetMinhTuDong.Models
         [JsonPropertyName("radius")]
         public int? Radius { get; set; }
 
+        [JsonPropertyName("preference")]
+        public int Preference { get; set; } = 0;
+
         [JsonPropertyName("classification")]
         public string Classification { get; set; } = string.Empty;
 
