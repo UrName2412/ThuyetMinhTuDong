@@ -37,6 +37,21 @@ namespace ThuyetMinhTuDong.Data
                 System.Diagnostics.Debug.WriteLine($"Migration error: {ex.Message}");
             }
 
+            // Đảm bảo cột Preference được tạo để ưu tiên POI khi khoảng cách bằng nhau
+            try
+            {
+                await _database.ExecuteAsync("ALTER TABLE PointOfInterest ADD COLUMN Preference INTEGER NOT NULL DEFAULT 0");
+                System.Diagnostics.Debug.WriteLine("Migration: Đã thêm cột Preference.");
+            }
+            catch (SQLite.SQLiteException ex) when (ex.Message.Contains("duplicate column name"))
+            {
+                // Bỏ qua nếu cột đã tồn tại
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Migration error: {ex.Message}");
+            }
+
             await _database.CreateTableAsync<TranslationCache>();
             await _database.CreateTableAsync<SyncState>();
         }
