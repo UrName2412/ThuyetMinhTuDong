@@ -96,7 +96,7 @@ namespace ThuyetMinhTuDong
                     {
                         var pois = await _viewModel.GetAllActivePoisFromCacheAsync();
                         var poi = pois?.FirstOrDefault(p => p.Id == poiId);
-                        
+
                         if (poi != null)
                         {
                             OnPlaceSelected(poi, "Quét QR");
@@ -210,7 +210,7 @@ namespace ThuyetMinhTuDong
                 {
                     try
                     {
-                        string msg = string.IsNullOrWhiteSpace(targetLangName) 
+                        string msg = string.IsNullOrWhiteSpace(targetLangName)
                             ? "Đang dịch sang ngôn ngữ của bạn..."
                             : $"Đang dịch sang {targetLangName}...";
 
@@ -357,10 +357,10 @@ namespace ThuyetMinhTuDong
                         var location = await _viewModel.GetCurrentLocationAsync();
                         if (location != null)
                         {
-                            bool shouldReloadPOIs = _lastLoadedLocation == null || 
+                            bool shouldReloadPOIs = _lastLoadedLocation == null ||
                                 Location.CalculateDistance(
-                                    location.Latitude, location.Longitude, 
-                                    _lastLoadedLocation.Latitude, _lastLoadedLocation.Longitude, 
+                                    location.Latitude, location.Longitude,
+                                    _lastLoadedLocation.Latitude, _lastLoadedLocation.Longitude,
                                     Microsoft.Maui.Devices.Sensors.DistanceUnits.Kilometers) * 1000 > 500;
 
                             if (shouldReloadPOIs)
@@ -674,25 +674,25 @@ namespace ThuyetMinhTuDong
             var tab1Content = this.FindByName<View>("Tab1Content");
             var tab2Content = this.FindByName<View>("Tab2Content");
 
-            if(lblTab1 != null) lblTab1.TextColor = Color.FromArgb("#A0938A");
-            if(lineTab1 != null) lineTab1.Color = Color.FromArgb("#3A2121");
-            if(lblTab2 != null) lblTab2.TextColor = Color.FromArgb("#A0938A");
-            if(lineTab2 != null) lineTab2.Color = Color.FromArgb("#3A2121");
+            if (lblTab1 != null) lblTab1.TextColor = Color.FromArgb("#A0938A");
+            if (lineTab1 != null) lineTab1.Color = Color.FromArgb("#3A2121");
+            if (lblTab2 != null) lblTab2.TextColor = Color.FromArgb("#A0938A");
+            if (lineTab2 != null) lineTab2.Color = Color.FromArgb("#3A2121");
 
-            if(tab1Content != null) tab1Content.IsVisible = false;
-            if(tab2Content != null) tab2Content.IsVisible = false;
+            if (tab1Content != null) tab1Content.IsVisible = false;
+            if (tab2Content != null) tab2Content.IsVisible = false;
 
             if (selectedTabIndex == 1)
             {
-                if(lblTab1 != null) lblTab1.TextColor = Color.FromArgb("#D4AF37");
-                if(lineTab1 != null) lineTab1.Color = Color.FromArgb("#B71C1C");
-                if(tab1Content != null) tab1Content.IsVisible = true;
+                if (lblTab1 != null) lblTab1.TextColor = Color.FromArgb("#D4AF37");
+                if (lineTab1 != null) lineTab1.Color = Color.FromArgb("#B71C1C");
+                if (tab1Content != null) tab1Content.IsVisible = true;
             }
             else if (selectedTabIndex == 2)
             {
-                if(lblTab2 != null) lblTab2.TextColor = Color.FromArgb("#D4AF37");
-                if(lineTab2 != null) lineTab2.Color = Color.FromArgb("#B71C1C");
-                if(tab2Content != null) tab2Content.IsVisible = true;
+                if (lblTab2 != null) lblTab2.TextColor = Color.FromArgb("#D4AF37");
+                if (lineTab2 != null) lineTab2.Color = Color.FromArgb("#B71C1C");
+                if (tab2Content != null) tab2Content.IsVisible = true;
             }
         }
 
@@ -821,15 +821,15 @@ namespace ThuyetMinhTuDong
                 if (tab2Label != null) tab2Label.Text = await translateService.TranslateTextAsync("Gần bạn", languageCode);
 
                 var statusLabel = this.FindByName<Label>("SelectPlaceStatusLabel");
-                if (statusLabel != null && statusLabel.Text == "Chưa chọn địa điểm") 
+                if (statusLabel != null && statusLabel.Text == "Chưa chọn địa điểm")
                     statusLabel.Text = await translateService.TranslateTextAsync("Chưa chọn địa điểm", languageCode);
 
                 var headerLabel = this.FindByName<Label>("SelectPlaceHeaderLabel");
-                if (headerLabel != null && headerLabel.Text == "Chọn một địa điểm") 
+                if (headerLabel != null && headerLabel.Text == "Chọn một địa điểm")
                     headerLabel.Text = await translateService.TranslateTextAsync("Chọn một địa điểm", languageCode);
 
                 var descriptionLabel = this.FindByName<Label>("DescriptionLabel");
-                if (descriptionLabel != null && descriptionLabel.Text == "Vui lòng chọn một địa điểm để xem thông tin chi tiết.") 
+                if (descriptionLabel != null && descriptionLabel.Text == "Vui lòng chọn một địa điểm để xem thông tin chi tiết.")
                     descriptionLabel.Text = await translateService.TranslateTextAsync("Vui lòng chọn một địa điểm để xem thông tin chi tiết.", languageCode);
 
                 var mapBtn = this.FindByName<Button>("OpenMapButton");
@@ -839,15 +839,15 @@ namespace ThuyetMinhTuDong
                 if (nearbyHeader != null) nearbyHeader.Text = await translateService.TranslateTextAsync("Các địa điểm gần bạn", languageCode);
 
                 var emptyNearby = this.FindByName<Label>("EmptyNearbyLabel");
-                if (emptyNearby != null && emptyNearby.Text.StartsWith("Hiện tại không có mục nào")) 
+                if (emptyNearby != null && emptyNearby.Text.StartsWith("Hiện tại không có mục nào"))
                     emptyNearby.Text = await translateService.TranslateTextAsync("Hiện tại không có mục nào để hiển thị.", languageCode);
 
                 var debugLabel = this.FindByName<Label>("DebugTriggerLabel");
-                if (debugLabel != null && debugLabel.Text == "Chưa vào vùng") 
+                if (debugLabel != null && debugLabel.Text == "Chưa vào vùng")
                     debugLabel.Text = await translateService.TranslateTextAsync("Chưa vào vùng", languageCode);
 
                 var menuTitleLabel = this.FindByName<Label>("LanguageMenuTitleLabel");
-                if (menuTitleLabel != null) 
+                if (menuTitleLabel != null)
                     menuTitleLabel.Text = await translateService.TranslateTextAsync("Tùy chọn ngôn ngữ", languageCode);
             }
             catch { }
@@ -987,15 +987,15 @@ namespace ThuyetMinhTuDong
             }
 
             var statusLabel = this.FindByName<Label>("SelectPlaceStatusLabel");
-            if (statusLabel != null) 
+            if (statusLabel != null)
                 statusLabel.Text = $"{translatedSource} · {translatedName}";
 
             var headerLabel = this.FindByName<Label>("SelectPlaceHeaderLabel");
-            if (headerLabel != null) 
+            if (headerLabel != null)
                 headerLabel.Text = translatedName;
 
             var descLabel = this.FindByName<Label>("DescriptionLabel");
-            if (descLabel != null) 
+            if (descLabel != null)
                 descLabel.Text = translatedDesc;
         }
 
@@ -1094,7 +1094,8 @@ namespace ThuyetMinhTuDong
                 {
                     await Launcher.Default.OpenAsync(new Uri(_viewModel.CurrentMapLink));
                 }
-            }   catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 await DisplayAlert("Lỗi", $"Không thể mở bản đồ: {ex.Message}", "OK");
             }
@@ -1187,33 +1188,17 @@ namespace ThuyetMinhTuDong
 
             if (activeTieCandidates.Count > 1)
             {
-                var tieKey = string.Join(",", activeTieCandidates.Select(x => x.Poi.Id));
-                if (!string.Equals(_equalDistanceTieKey, tieKey, StringComparison.Ordinal))
-                {
-                    _equalDistanceTieKey = tieKey;
-                    _equalDistanceSpokenPoiIds.Clear();
-                }
+                nearestPoiModel = activeTieCandidates
+                    .OrderBy(x => x.Poi.Id)
+                    .Select(x => x.Poi)
+                    .First();
 
-                var nextInQueue = activeTieCandidates.FirstOrDefault(x => !_equalDistanceSpokenPoiIds.Contains(x.Poi.Id));
-                if (nextInQueue == null)
-                {
-                    string doneQueueText = "Đã phát hết hàng đợi đồng khoảng cách";
-                    if (translateService != null && !string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
-                    {
-                        doneQueueText = await translateService.TranslateTextAsync(doneQueueText, uiLangCode);
-                    }
+                var prioritizedCandidate = activeTieCandidates.First(x => x.Poi.Id == nearestPoiModel.Id);
+                nearestPoiDistance = prioritizedCandidate.Distance;
+                nearestPoiTriggerRadius = prioritizedCandidate.TriggerRadius;
 
-                    await MainThread.InvokeOnMainThreadAsync(() =>
-                    {
-                        var debugLabel = this.FindByName<Label>("DebugTriggerLabel");
-                        if (debugLabel != null) debugLabel.Text = doneQueueText;
-                    });
-                    return;
-                }
-
-                nearestPoiModel = nextInQueue.Poi;
-                nearestPoiDistance = nextInQueue.Distance;
-                nearestPoiTriggerRadius = nextInQueue.TriggerRadius;
+                _equalDistanceTieKey = string.Join(",", activeTieCandidates.Select(x => x.Poi.Id));
+                _equalDistanceSpokenPoiIds.Clear();
             }
             else
             {
@@ -1268,17 +1253,13 @@ namespace ThuyetMinhTuDong
 
             if (activeTieCandidates.Count > 1)
             {
-                string orderText = "Thứ tự";
-                string queueText = "Hàng đợi";
+                string priorityText = "Đã ưu tiên phát POI có ID cũ nhất";
                 if (translateService != null && !string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
                 {
-                    orderText = await translateService.TranslateTextAsync(orderText, uiLangCode);
-                    queueText = await translateService.TranslateTextAsync(queueText, uiLangCode);
+                    priorityText = await translateService.TranslateTextAsync(priorityText, uiLangCode);
                 }
 
-                var order = activeTieCandidates.FindIndex(x => x.Poi.Id == nearestPoiModel.Id) + 1;
-                var queueItems = activeTieCandidates.Select((x, idx) => $"{idx + 1}.{x.Poi.Name}");
-                debugNewText += $" · {orderText}: {order}/{activeTieCandidates.Count}\n{queueText}: {string.Join(" | ", queueItems)}";
+                debugNewText += $" · {priorityText}";
             }
 
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -1292,7 +1273,6 @@ namespace ThuyetMinhTuDong
 
             _lastApproachPoiId = nearestPoiModel.Id;
             _lastAutoSpokenPoiId = nearestPoiModel.Id;
-            _equalDistanceSpokenPoiIds.Add(nearestPoiModel.Id);
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
