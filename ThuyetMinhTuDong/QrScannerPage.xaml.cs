@@ -6,6 +6,7 @@ namespace ThuyetMinhTuDong;
 public class QrScannerPage : ContentPage
 {
     private bool _isHandlingResult;
+    private Label _instructionLabel;
 
     public QrScannerPage()
     {
@@ -29,6 +30,15 @@ public class QrScannerPage : ContentPage
         };
         qrReader.BarcodesDetected += OnBarcodesDetected;
 
+        _instructionLabel = new Label
+        {
+            Text = "Đang tìm QR Code... Đưa mã vào giữa hình",
+            TextColor = Colors.LightGreen,
+            FontAttributes = FontAttributes.Bold,
+            HorizontalOptions = LayoutOptions.Center,
+            Margin = new Thickness(0, 8, 0, 12)
+        };
+
         Content = new Grid
         {
             Padding = 12,
@@ -39,19 +49,32 @@ public class QrScannerPage : ContentPage
             },
             Children =
             {
-                new Label
-                {
-                    Text = "Đang tìm QR Code... Đưa mã vào giữa hình",
-                    TextColor = Colors.LightGreen,
-                    FontAttributes = FontAttributes.Bold,
-                    HorizontalOptions = LayoutOptions.Center,
-                    Margin = new Thickness(0, 8, 0, 12)
-                },
+                _instructionLabel,
                 qrReader
             }
         };
 
         Grid.SetRow(qrReader, 1);
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+
+        var uiLangCode = Preferences.Default.Get("UiLanguageCode", "vi");
+        if (!string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+        {
+            var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ThuyetMinhTuDong.Services.ITranslateService>();
+            if (translateService != null)
+            {
+                try
+                {
+                    Title = await translateService.TranslateTextAsync("Quét QR", uiLangCode);
+                    _instructionLabel.Text = await translateService.TranslateTextAsync("Đang tìm QR Code... Đưa mã vào giữa hình", uiLangCode);
+                }
+                catch { }
+            }
+        }
     }
 
     private void OnBarcodesDetected(object? sender, BarcodeDetectionEventArgs e)

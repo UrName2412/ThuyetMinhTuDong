@@ -93,14 +93,28 @@ namespace ThuyetMinhTuDong
                     {
                         var pois = await _viewModel.GetAllActivePoisFromCacheAsync();
                         var poi = pois?.FirstOrDefault(p => p.Id == poiId);
-                        
+
                         if (poi != null)
                         {
                             OnPlaceSelected(poi, "Quét QR");
                         }
                         else
                         {
-                            await DisplayAlert("Mã QR", "Không tìm thấy thông tin địa điểm này.", "OK");
+                            string title = "Mã QR";
+                            string message = "Không tìm thấy thông tin địa điểm này.";
+                            string okBytes = "OK";
+
+                            var uiLangCode = Preferences.Default.Get("UiLanguageCode", "vi");
+                            if (!string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ITranslateService>();
+                                if (translateService != null)
+                                {
+                                    title = await translateService.TranslateTextAsync(title, uiLangCode);
+                                    message = await translateService.TranslateTextAsync(message, uiLangCode);
+                                }
+                            }
+                            await DisplayAlert(title, message, okBytes);
                         }
                     }
                     _qrPoiIdParam = null;
