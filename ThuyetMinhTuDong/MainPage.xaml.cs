@@ -429,12 +429,30 @@ namespace ThuyetMinhTuDong
         }
 
         // Cập nhật trạng thái hiển thị của nút GPS ON/OFF.
-        private void UpdateGpsToggleButton()
+        private async void UpdateGpsToggleButton()
         {
             var gpsToggleButton = this.FindByName<Button>("GpsToggleButton");
             if (gpsToggleButton != null)
             {
-                gpsToggleButton.Text = _isGpsRealtimeEnabled ? "GPS: ON" : "GPS: OFF";
+                string baseText = _isGpsRealtimeEnabled ? "GPS: ON" : "GPS: OFF";
+                string translatedText = baseText;
+                var uiLangCode = Preferences.Default.Get("UiLanguageCode", "vi");
+                if (!string.IsNullOrEmpty(uiLangCode) && !uiLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+                {
+                    var translateService = App.Current?.Handler?.MauiContext?.Services.GetService<ITranslateService>();
+                    if (translateService != null)
+                    {
+                        try
+                        {
+                            translatedText = await translateService.TranslateTextAsync(baseText, uiLangCode);
+                        }
+                        catch { }
+                    }
+                }
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    gpsToggleButton.Text = translatedText;
+                });
             }
         }
 
@@ -824,6 +842,16 @@ namespace ThuyetMinhTuDong
                 var langSettingBtn = this.FindByName<Button>("LanguageSettingButton");
                 if (langSettingBtn != null) langSettingBtn.Text = await translateService.TranslateTextAsync("Cài đặt ngôn ngữ", languageCode) + " ▾";
 
+                var gpsBtn = this.FindByName<Button>("GpsToggleButton");
+                if (gpsBtn != null)
+                {
+                    string baseText = _isGpsRealtimeEnabled ? "GPS: ON" : "GPS: OFF";
+                    gpsBtn.Text = await translateService.TranslateTextAsync(baseText, languageCode);
+                }
+
+                var qrBtn = this.FindByName<Button>("QrScanButton");
+                if (qrBtn != null) qrBtn.Text = await translateService.TranslateTextAsync("QR", languageCode);
+
                 var tab1Label = this.FindByName<Label>("LblTab1");
                 if (tab1Label != null) tab1Label.Text = await translateService.TranslateTextAsync("Giới thiệu", languageCode);
 
@@ -831,15 +859,15 @@ namespace ThuyetMinhTuDong
                 if (tab2Label != null) tab2Label.Text = await translateService.TranslateTextAsync("Gần bạn", languageCode);
 
                 var statusLabel = this.FindByName<Label>("SelectPlaceStatusLabel");
-                if (statusLabel != null && statusLabel.Text == "Chưa chọn địa điểm")
+                if (statusLabel != null && string.IsNullOrEmpty(_viewModel.CurrentDescriptionVietnamese))
                     statusLabel.Text = await translateService.TranslateTextAsync("Chưa chọn địa điểm", languageCode);
 
                 var headerLabel = this.FindByName<Label>("SelectPlaceHeaderLabel");
-                if (headerLabel != null && headerLabel.Text == "Chọn một địa điểm")
+                if (headerLabel != null && string.IsNullOrEmpty(_viewModel.CurrentDescriptionVietnamese))
                     headerLabel.Text = await translateService.TranslateTextAsync("Chọn một địa điểm", languageCode);
 
                 var descriptionLabel = this.FindByName<Label>("DescriptionLabel");
-                if (descriptionLabel != null && descriptionLabel.Text == "Vui lòng chọn một địa điểm để xem thông tin chi tiết.")
+                if (descriptionLabel != null && string.IsNullOrEmpty(_viewModel.CurrentDescriptionVietnamese))
                     descriptionLabel.Text = await translateService.TranslateTextAsync("Vui lòng chọn một địa điểm để xem thông tin chi tiết.", languageCode);
 
                 var mapBtn = this.FindByName<Button>("OpenMapButton");

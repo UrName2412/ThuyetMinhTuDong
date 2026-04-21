@@ -28,6 +28,8 @@ namespace ThuyetMinhTuDong.Services
             if (string.IsNullOrWhiteSpace(text))
                 return text;
 
+            text = text.Normalize(System.Text.NormalizationForm.FormC);
+
             if (targetLangCode.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
                 return text;
 
@@ -36,11 +38,21 @@ namespace ThuyetMinhTuDong.Services
             {
                 var dictManager = new System.Resources.ResourceManager("ThuyetMinhTuDong.Resources.Strings.AppResources", System.Reflection.Assembly.GetExecutingAssembly());
                 var culture = new System.Globalization.CultureInfo(targetLangCode);
-                var resourceValue = dictManager.GetString(text, culture);
-                if (!string.IsNullOrWhiteSpace(resourceValue))
+
+                var currentCulture = culture;
+                while (currentCulture != null && currentCulture != System.Globalization.CultureInfo.InvariantCulture)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[RESX HIT] {text} -> {resourceValue}");
-                    return resourceValue;
+                    var resourceSet = dictManager.GetResourceSet(currentCulture, createIfNotExists: true, tryParents: false);
+                    if (resourceSet != null)
+                    {
+                        var exactResourceValue = resourceSet.GetString(text);
+                        if (!string.IsNullOrWhiteSpace(exactResourceValue))
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[RESX HIT EXACT] {text} -> {exactResourceValue}");
+                            return exactResourceValue;
+                        }
+                    }
+                    currentCulture = currentCulture.Parent;
                 }
             }
             catch (Exception ex)
@@ -60,8 +72,16 @@ namespace ThuyetMinhTuDong.Services
                 var cached = await _database.GetTranslationAsync(text, targetLangCode);
                 if (cached != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Cache HIT] {text} -> {cached.TranslatedText}");
-                    return cached.TranslatedText;
+                    // Nếu cache có nhưng bằng đúng text gốc, mà không phải tiếng Việt hoặc các từ như QR
+                    if (cached.TranslatedText == text && text != "QR" && !text.StartsWith("GPS"))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Cache INVALID] {text} equals original, re-fetching...");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Cache HIT] {text} -> {cached.TranslatedText}");
+                        return cached.TranslatedText;
+                    }
                 }
             }
 
